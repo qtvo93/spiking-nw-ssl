@@ -1,0 +1,24 @@
+[project]
+name = "spiking-nw-ssl"
+version = "0.1.0"
+description = "App to run spiking-nw-ssl"
+authors = [{"name" = "Quoc Thinh Vo", "email" = "qv23@drexel.edu"}]
+readme = "README.md"
+requires-python = ">=3.9"
+dependencies = [
+    "black>=24.10.0",
+    "conformer>=0.3.2",
+    "joblib>=1.4.2",
+    "librosa>=0.10.2.post1",
+    "matplotlib>=3.9.2",
+    "numpy>=2.0.2",
+    "pandas>=2.2.3",
+    "pytorch-lightning>=2.4.0",
+    "pyyaml>=6.0.2",
+    "scikit-learn>=1.5.2",
+    "torch>=2.4.1",
+    "torchaudio>=2.4.1",
+    "typer>=0.13.0",
+    "wandb>=0.18.5",
+    "yamllint>=1.35.1",
+]
