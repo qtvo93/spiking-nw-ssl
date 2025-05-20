@@ -9,7 +9,9 @@ import logging
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
+# from snntorch import utils
 
+from utils.set_seed import SetSeed
 
 class Trainer(object):
     def __init__(
@@ -24,6 +26,9 @@ class Trainer(object):
         val_loader,
     ):
         super().__init__()
+        self.set_seed = SetSeed(42)
+        self.set_seed.set_seed()
+
         self.best_model_path = best_model_path
         self.optimizer = optimizer
         self.criterion = criterion
@@ -49,11 +54,14 @@ class Trainer(object):
             None
         """
         # Initialize ReduceLROnPlateau scheduler
-        scheduler = optim.lr_scheduler.ReduceLROnPlateau(self.optimizer, mode='min', factor=0.5, patience=5, verbose=True)
+        scheduler = optim.lr_scheduler.ReduceLROnPlateau(
+            self.optimizer, mode="min", factor=0.5, patience=5
+        )
 
         best_val_loss = float("inf")
         for epoch in range(self.num_epochs):
             self.model.train()
+            # utils.reset(self.model)
             total_loss = 0
             for batch, data in enumerate(self.train_loader):
                 self.optimizer.zero_grad()
@@ -75,20 +83,19 @@ class Trainer(object):
                 if torch.isnan(loss):
                     logging.info(f"NaN detected in loss at epoch {epoch}")
                     break
-                
+
                 regularization_type = None
                 lambda_reg = 0.01
                 # Apply L1 regularization
-                if regularization_type == 'L1':
+                if regularization_type == "L1":
                     l1_norm = sum(p.abs().sum() for p in self.model.parameters())
                     loss += lambda_reg * l1_norm
-                
+
                 # Apply L2 regularization
-                elif regularization_type == 'L2':
+                elif regularization_type == "L2":
                     l2_norm = sum(p.pow(2).sum() for p in self.model.parameters())
                     loss += lambda_reg * l2_norm
 
-                
                 loss.backward()
                 self.optimizer.step()
 
@@ -109,9 +116,10 @@ class Trainer(object):
                     f"Saved the best model with validation loss: {best_val_loss:.4f}"
                 )
             logging.info(
-                f"Epoch [{epoch+1}/{self.num_epochs}], Train Loss: {total_loss / len(self.train_loader)}, Validation Loss: {val_loss}"
+                f"Epoch [{epoch+1}/{self.num_epochs}], LR: {scheduler.get_last_lr()[0]}, Train Loss: {total_loss / len(self.train_loader)}, Validation Loss: {val_loss}"
             )
-            scheduler.step(val_loss)
+            # scheduler.step(val_loss)
+
     # def train_supervised_model(self):
     #     best_val_loss = float("inf")
     #     domain_criterion = nn.BCELoss()
@@ -162,7 +170,6 @@ class Trainer(object):
     #         logging.info(
     #             f"Epoch [{epoch+1}/{self.num_epochs}], Train Loss: {total_loss / len(self.train_loader)}, Validation Loss: {val_loss}"
     #         )
-
 
     # def train_supervised_model(self):
     #     best_val_loss = float("inf")
@@ -244,6 +251,6 @@ class Trainer(object):
     #         return k_xx, k_yy, k_xy
 
     #     k_xx, k_yy, k_xy = rbf_kernel(x_source, x_target, sigma)
-        
+
     #     mmd_loss = k_xx.mean() + k_yy.mean() - 2 * k_xy.mean()
     #     return mmd_loss

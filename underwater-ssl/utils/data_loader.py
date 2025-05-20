@@ -81,8 +81,11 @@ class CustomDataLoader(object):
                     #     for sublist in training_data_dict[: Params.total_folds]
                     #     for item in sublist
                     # ]
-                    all_data = training_data_dict
-                
+                    
+                    all_data = training_data_dict[0] + training_data_dict[1] + \
+                            training_data_dict[2] + training_data_dict[3] + \
+                            training_data_dict[4] + training_data_dict[5]
+
                     # hard code this to load the right - receding data only
                     # all_data = training_data_dict[5]
                     all_train_data, test_data = train_test_split(
@@ -92,13 +95,22 @@ class CustomDataLoader(object):
                         all_train_data, test_size=0.15, random_state=42
                     )
             else:
-                with open("/mnt/active_storage/qv23/DCASE2024/swell24/swellex-data-HLA-South-6-1sec-1234-train.pkl", "rb") as f:
+                with open(
+                    "/mnt/active_storage/qv23/DCASE2024/swell24/swellex-data-HLA-South-6-1sec-1234-train.pkl",
+                    "rb",
+                ) as f:
                     training_data_dict = pickle.load(f)
 
-                with open("/mnt/active_storage/qv23/DCASE2024/swell24/swellex-data-HLA-South-6-1sec-5-val.pkl", "rb") as f:
+                with open(
+                    "/mnt/active_storage/qv23/DCASE2024/swell24/swellex-data-HLA-South-6-1sec-5-val.pkl",
+                    "rb",
+                ) as f:
                     val_data_dict = pickle.load(f)
 
-                with open("/mnt/active_storage/qv23/DCASE2024/swell24/swellex-data-HLA-South-6-1sec-6-test.pkl", "rb") as f:
+                with open(
+                    "/mnt/active_storage/qv23/DCASE2024/swell24/swellex-data-HLA-South-6-1sec-6-test.pkl",
+                    "rb",
+                ) as f:
                     test_data_dict = pickle.load(f)
 
                 train_data = training_data_dict

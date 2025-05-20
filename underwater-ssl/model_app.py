@@ -101,7 +101,9 @@ class MainApp(object):
             raise ValueError("Optimizer not supported")
 
         if Params.finetune_mode:
-            model.load_state_dict(torch.load(Params.pretrained_model_path), strict=False)
+            model.load_state_dict(
+                torch.load(Params.pretrained_model_path), strict=False
+            )
             logging.info("Finetuning model...")
 
         Trainer(

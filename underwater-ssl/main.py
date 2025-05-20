@@ -5,6 +5,7 @@ import wandb
 import yaml
 import time
 import os
+os.environ["CUBLAS_WORKSPACE_CONFIG"] = ":4096:8"
 
 from options import Options, BaseOptions
 from model_app import MainApp
@@ -89,9 +90,11 @@ def model_trainer():
     model_trainer.train(train_loader, val_loader)
     logging.info("Training completed!")
     if Params.run_inference_mode == True:
+        infer_time = time.time()
         logging.info("Running test on the test dataset...")
         model_trainer.inference(test_loader)
         logging.info("Inference completed!")
+        logging.info(f"INFER: {time.time() - infer_time}")
 
     wandb.finish() if Params.run_with_wandb else None
     end_time = time.time()

@@ -15,11 +15,15 @@ from torch.utils.data import DataLoader
 
 from utils.parameters import Params
 from utils.data_loader import CustomDataset
+from utils.set_seed import SetSeed
+from utils.inspector import ModelInspector
 
 
 class Inference(object):
     def __init__(self, model, test_loader):
         super().__init__()
+        self.set_seed = SetSeed(42)
+        self.set_seed.set_seed()
         self.device = Params.device
         self.model = model
         self.test_loader = test_loader
@@ -39,7 +43,9 @@ class Inference(object):
         sorted_dataset = CustomDataset(sorted_data_list)
 
         # Create a new DataLoader with the sorted dataset
-        sorted_test_loader = DataLoader(sorted_dataset, batch_size=test_loader.batch_size, shuffle=False)
+        sorted_test_loader = DataLoader(
+            sorted_dataset, batch_size=test_loader.batch_size, shuffle=False
+        )
 
         return sorted_test_loader
 
@@ -59,14 +65,14 @@ class Inference(object):
         self.model.eval()
         all_predictions = []
         all_targets = []
-        
+
         # if not Params.cross_validation_mode:
         #     logging.info("Sort the test dataset...")
         #     # Sort the test_loader
         #     self.test_loader = self.sort_test_loader(self.test_loader)
-
-
-        # Iterate over batches in the test dataset
+        
+        inspector = ModelInspector(self.model)
+        # inspector.register_hooks()
         with torch.no_grad():
             for batch, data in enumerate(self.test_loader):
 
@@ -88,6 +94,16 @@ class Inference(object):
                 batch_targets = labels.cpu().numpy()
                 all_predictions.extend(predicted_labels)
                 all_targets.extend(batch_targets)
+        
+        # inspector.save_weights()
+
+        # for i, block in enumerate(self.model.conformer1.layers):
+        #     if hasattr(block, "attn_weights") and block.attn_weights is not None:
+        #         logging.info("Attention")
+        #         inspector.visualize_attention(block.attn_weights[0], f"conformer_block_{i}")
+
+        # # Clean up
+        # inspector.remove_hooks()
 
         # Convert lists to numpy arrays for easier manipulation
         all_predictions = np.array(all_predictions)
@@ -130,7 +146,7 @@ class Inference(object):
         #     mae = total_absolute_error / S
 
         #     return pcl5, mae
-        
+
         # pcl5, mae = calculate_pcl5_mae(all_predictions, all_targets)
 
         def calculate_metrics(predictions, targets):
@@ -179,14 +195,11 @@ class Inference(object):
 
             return pcl5, pcl10, mae, mse
 
-       
-
         pcl5, pcl10, mae, mse = calculate_metrics(all_predictions, all_targets)
         logging.info(f"PCL-5%: {pcl5}%")
         logging.info(f"PCL-10%: {pcl10}%")
         logging.info(f"MAE: {mae}")
         logging.info(f"MSE: {mse}")
-        
 
         # indices = np.arange(1, len(all_targets) + 1)
 
@@ -211,15 +224,29 @@ class Inference(object):
         fig, ax = plt.subplots(figsize=(12, 6))
 
         # Plot the true labels in blue
-        ax.scatter(indices_10th, all_targets_10th, c="b", label="Derived Ground Truth", s=8)
-        ax.scatter(indices_10th, all_predictions_10th, c="r", marker="x", label="Predicted Labels", s=8)
+        ax.scatter(
+            indices_10th, all_targets_10th, c="b", label="Derived Ground Truth", s=8
+        )
+        ax.scatter(
+            indices_10th,
+            all_predictions_10th,
+            c="r",
+            marker="x",
+            label="Predicted Labels",
+            s=8,
+        )
 
         # Add shaded area for ±5% range
         lower_bound = all_targets_10th * 0.95
         upper_bound = all_targets_10th * 1.05
-        ax.fill_between(indices_10th, lower_bound, upper_bound, color='gray', alpha=0.2, label="±5% Range")
-
-
+        ax.fill_between(
+            indices_10th,
+            lower_bound,
+            upper_bound,
+            color="gray",
+            alpha=0.2,
+            label="±5% Range",
+        )
 
         # Add labels and legend
         ax.set_xlabel("Index")

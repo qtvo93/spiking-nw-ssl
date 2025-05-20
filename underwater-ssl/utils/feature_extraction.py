@@ -14,7 +14,7 @@ import pickle
 import logging
 import joblib
 import torchaudio.transforms as T
-
+from scipy.interpolate import interp1d
 from utils.parameters import Params
 
 
@@ -95,7 +95,10 @@ class FeatureExtraction(object):
         """
         metadata = pd.DataFrame(columns=["filename", "range_km", "fold", "target"])
         sproul_data = self.load_sproul_labels_and_preprocess()
-
+        
+        # 7.932 7.042  5.953 5.087 4.251 3.382 2.574 1.800 1.147 0.905 1.396 2.179
+        test_ranges = [7.932, 7.042, 5.953, 5.087, 4.251, 3.382, 2.574, 1.800, 1.147, 0.905, 1.396, 2.179]
+        
         # Iterate through each spectrogram
         for i in range(num_spectrograms):
 
@@ -109,8 +112,13 @@ class FeatureExtraction(object):
             range_km = sproul_data.loc[closest_idx, "Range(km)"]
 
             filename = f"file_{i+1}.wav"
-
+            # if Params.normal_split:
             fold = i % Params.total_folds + 1
+            # else:
+            #     if float(range_km) in test_ranges:
+            #         fold = 6
+            #     else:
+            #         fold = i % 5 + 1
             target = float(range_km)
 
             new_row = pd.DataFrame(
@@ -209,12 +217,19 @@ class FeatureExtraction(object):
             np.random.shuffle(indices)
 
             # Assign folds randomly but evenly
-            fold_assignments = indices % Params.total_folds + 1  # Folds will be 1 to total_folds
-
+            fold_assignments = (
+                # indices % Params.total_folds + 1
+                indices % 5 + 1
+            )  # Folds will be 1 to total_folds
+            # 7.932 7.042  5.953 5.087 4.251 3.382 2.574 1.800 1.147 0.905 1.396 2.179
+            test_ranges = [7.932, 7.042, 5.953, 5.087, 4.251, 3.382, 2.574, 1.800, 1.147, 0.905, 1.396, 2.179]
             for i in range(num_spectrograms):
                 range_km = labels[i * self.sampling_rate]
                 filename = f"file_{i+1}.wav"
-                fold = fold_assignments[i]
+                if float(range_km) in test_ranges:
+                    fold = 6
+                else:
+                    fold = fold_assignments[i]
                 target = float(range_km)
 
                 new_row = pd.DataFrame(
@@ -263,7 +278,7 @@ class FeatureExtraction(object):
             numpy array: Noisy signal
         """
         # Compute signal power
-        signal_power = np.mean(signal ** 2)
+        signal_power = np.mean(signal**2)
 
         # Compute noise power based on desired SNR
         noise_power = signal_power / (10 ** (snr_db / 10))
@@ -276,7 +291,78 @@ class FeatureExtraction(object):
 
         return noisy_signal
 
+    def polarity_flip(self, signal):
+        return -signal
 
+    def time_warp_multichannel(self, signal, max_warp=0.2):
+        """
+        Time warp a multi-channel signal (time, channels).
+        Warping is applied along the time axis for all channels.
+
+        Parameters:
+        - signal: np.array of shape (T, C)
+        - max_warp: float, fraction of T to allow for warping shift
+
+        Returns:
+        - warped signal: same shape as input
+        """
+        T, C = signal.shape
+        warp_point = np.random.randint(int(T * 0.3), int(T * 0.7))
+        warp_amount = int(T * max_warp * (np.random.rand() * 2 - 1))  # ±max_warp shift
+
+        # Create a warped time axis
+        dst = np.arange(T)
+        dst[warp_point:] = np.clip(dst[warp_point:] + warp_amount, 0, T - 1)
+
+        # Interpolate each channel over the new warped timeline
+        warped = np.zeros_like(signal)
+        for ch in range(C):
+            f = interp1d(
+                dst,
+                signal[:, ch],
+                kind="linear",
+                bounds_error=False,
+                fill_value="extrapolate",
+            )
+            warped[:, ch] = f(np.arange(T))
+
+        return warped
+
+    def mixup_split_multichannel(self, signal, alpha=0.4, split_ratio=0.6):
+        """
+        Mixup between two parts of the same multi-channel signal (T, C).
+        Ensures output has the same shape as input.
+        """
+        T, C = signal.shape
+        split_idx = int(T * split_ratio)
+
+        part1 = signal[:split_idx, :]
+        part2 = signal[split_idx:, :]
+
+        min_len = min(len(part1), len(part2))
+        part1 = part1[:min_len]
+        part2 = part2[:min_len]
+
+        lam = np.random.beta(alpha, alpha)
+        mixed = lam * part1 + (1 - lam) * part2
+
+        # Reconstruct with padding to original length
+        if split_ratio < 0.5:
+            tail = signal[split_idx + min_len :, :]
+            mixed_signal = np.concatenate([mixed, tail], axis=0)
+        else:
+            head = signal[: split_idx - min_len, :]
+            mixed_signal = np.concatenate([head, mixed], axis=0)
+
+        # Final check & pad if needed
+        if mixed_signal.shape[0] < T:
+            pad_len = T - mixed_signal.shape[0]
+            padding = signal[-pad_len:, :]  # pad with trailing original data
+            mixed_signal = np.concatenate([mixed_signal, padding], axis=0)
+        elif mixed_signal.shape[0] > T:
+            mixed_signal = mixed_signal[:T, :]
+
+        return mixed_signal, lam
 
     def extract_features(
         self,
@@ -313,7 +399,7 @@ class FeatureExtraction(object):
         #         range_km = metadata.iloc[i]["range_km"]
 
         #         start_idx, end_idx = start_indices[i], end_indices[i]
-                
+
         #         data_dict[filename] = {
         #             "data": (
         #                 data_array[start_idx:end_idx]
@@ -322,7 +408,7 @@ class FeatureExtraction(object):
         #             ),
         #             "target": range_km,
         #         }
-           
+
         # else:
         logging.info("Sampling rate is an integer...")
         self.sampling_rate = int(self.sampling_rate)
@@ -379,19 +465,37 @@ class FeatureExtraction(object):
                 # if fold != 5:
                 #     noise = np.random.normal(0, 0.01, signal.shape)
                 #     signal = signal + noise
-                if fold != 5:
-                    signal_50 = self.add_noise_with_snr(signal, 2*50)
-                    signal_40 = self.add_noise_with_snr(signal, 2*40)
-                    signal_30 = self.add_noise_with_snr(signal, 2*30)
-                    signal_20 = self.add_noise_with_snr(signal, 2*20)
+                if fold != 5 and fold != 6:
+                    # signal_60 = self.add_noise_with_snr(signal, 2 * 60)
+                    # signal_50 = self.add_noise_with_snr(signal, 2 * 50)
+                    signal_40 = self.add_noise_with_snr(signal, 2 * 40)
+                    signal_35 = self.add_noise_with_snr(signal, 2 * 35)
+                    signal_30 = self.add_noise_with_snr(signal, 2 * 30)
+                    signal_25 = self.add_noise_with_snr(signal, 2 * 25)
+                    signal_20 = self.add_noise_with_snr(signal, 2 * 20)
+                    signal_15 = self.add_noise_with_snr(signal, 2 * 15)
+                    signal_10 = self.add_noise_with_snr(signal, 2 * 10)
+                    # signal_warp = self.time_warp_multichannel(signal, max_warp=0.2)
+                    # signal_flip = self.polarity_flip(signal)
+                    # signal_mixup, _ = self.mixup_split_multichannel(
+                    #     signal, alpha=0.3, split_ratio=0.7
+                    # )
+
                 target_value = data_dict[name]["target"]
+
+                # # ensure all signal is of share (1500, 21):
+                # assert (
+                #     signal.shape == (self.sampling_rate, self.num_channels)
+                #     and signal_warp.shape == (self.sampling_rate, self.num_channels)
+                #     and signal_mixup.shape == (self.sampling_rate, self.num_channels)
+                # ), f"Signal shape mismatch: signal={signal.shape}, signal_warp={signal_warp.shape}, signal_mixup={signal_mixup.shape}"
 
                 # output_dict.append({
                 #     "name": name,
                 #     "target": float(target),
                 #     "waveform": np.float32(signal),
                 # })
-                
+
                 output_dict[int(fold) - 1].append(
                     {
                         "name": name,
@@ -399,34 +503,91 @@ class FeatureExtraction(object):
                         "waveform": np.float32(signal),
                     }
                 )
-                output_dict[int(fold) - 1].append(
-                    {
-                        "name": name,
-                        "target": float(target),
-                        "waveform": np.float32(signal_50),
-                    }
-                )
-                output_dict[int(fold) - 1].append(
-                    {   
-                        "name": name,
-                        "target": float(target),
-                        "waveform": np.float32(signal_40),
-                    }
-                )
-                output_dict[int(fold) - 1].append(
-                    {
-                        "name": name,
-                        "target": float(target),
-                        "waveform": np.float32(signal_30),
-                    }
-                )
-                output_dict[int(fold) - 1].append(
-                    {
-                        "name": name,
-                        "target": float(target),
-                        "waveform": np.float32(signal_20),
-                    }
-                )
+                # if fold != 5 and fold != 6:
+                #     # output_dict[int(fold) - 1].append(
+                #     #     {
+                #     #         "name": name,
+                #     #         "target": float(target),
+                #     #         "waveform": np.float32(signal_60),
+                #     #     }
+                #     # )
+                #     # output_dict[int(fold) - 1].append(
+                #     #     {
+                #     #         "name": name,
+                #     #         "target": float(target),
+                #     #         "waveform": np.float32(signal_50),
+                #     #     }
+                #     # )
+                #     output_dict[int(fold) - 1].append(
+                #         {
+                #             "name": name,
+                #             "target": float(target),
+                #             "waveform": np.float32(signal_40),
+                #         }
+                #     )
+                #     output_dict[int(fold) - 1].append(
+                #         {
+                #             "name": name,
+                #             "target": float(target),
+                #             "waveform": np.float32(signal_35),
+                #         }
+                #     )
+                #     output_dict[int(fold) - 1].append(
+                #         {
+                #             "name": name,
+                #             "target": float(target),
+                #             "waveform": np.float32(signal_30),
+                #         }
+                #     )
+                #     output_dict[int(fold) - 1].append(
+                #         {
+                #             "name": name,
+                #             "target": float(target),
+                #             "waveform": np.float32(signal_25),
+                #         }
+                #     )
+                #     output_dict[int(fold) - 1].append(
+                #         {
+                #             "name": name,
+                #             "target": float(target),
+                #             "waveform": np.float32(signal_20),
+                #         }
+                #     )
+                #     output_dict[int(fold) - 1].append(
+                #         {
+                #             "name": name,
+                #             "target": float(target),
+                #             "waveform": np.float32(signal_15),
+                #         }
+                #     )
+                #     output_dict[int(fold) - 1].append(
+                #         {
+                #             "name": name,
+                #             "target": float(target),
+                #             "waveform": np.float32(signal_10),
+                #         }
+                #     )
+                #     output_dict[int(fold) - 1].append(
+                #         {
+                #             "name": name,
+                #             "target": float(target),
+                #             "waveform": np.float32(signal_warp),
+                #         }
+                #     )
+                #     output_dict[int(fold) - 1].append(
+                #         {
+                #             "name": name,
+                #             "target": float(target),
+                #             "waveform": np.float32(signal_flip),
+                #         }
+                #     )
+                #     output_dict[int(fold) - 1].append(
+                #         {
+                #             "name": name,
+                #             "target": float(target),
+                #             "waveform": np.float32(signal_mixup),
+                #         }
+                #     )
 
                 if index == 0:
                     logging.info("Logging the first audio file for sample check")
@@ -441,6 +602,7 @@ class FeatureExtraction(object):
         with open(output_file_name, "wb") as f:
             pickle.dump(output_dict, f)
         logging.info("Data saving completed.")
+
     """
         output_dict = [[] for _ in range(Params.total_folds)]
         audio_list = set(metadata["filename"])
