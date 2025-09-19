@@ -3,7 +3,7 @@
 wandb_training_project: "aca-dtnet"
 wandb_training_name: "swellex-run-real-new-arch"
 run_with_wandb: false
-batch_size: 128
+batch_size: 32
 spectrogram_duration: 1.0
 # (Accepted: "time_series", "chunked_list")
 data_format_mode: "time_series"
@@ -31,23 +31,23 @@ train_datasets: []
 validation_datasets: []
 test_datasets: []
 # The following parameters are for the single dataset mode
-cross_validation_mode: false
+cross_validation_mode: true
 # if cross_validation_mode = true, provide the total_folds, train_folds, validation_folds, and test_folds
 # if cross_validation_mode = false, provide the test_size
 total_folds: 6
 train_folds: [0, 1, 2, 3]
 validation_folds: [4]
-test_folds: [0,1,2,3,4,5]
-test_size: 0.8
+test_folds: [5]
+test_size: 0.7
 run_inference_mode: true
 # (If finetune = True, pretrained_model_path must be provided)
 finetune_mode: true
 log_verbose: false
 print_first_10th_predictions: false
-prediction_output_image_plot: "true_vs_predicted_labels123.png"
-csv_file_path: "underwater-ssl/data/s5/tla/tla_raw.csv"
-sproul_text_file_path: "underwater-ssl/data/s5/tla/SproulToTLA.S5.txt"
-best_model_path: "best_model-ft-1-tla-real.pth"
+prediction_output_image_plot: "true_vs_predicted_labelsS5-newbeta-0.png"
+csv_file_path: "underwater-ssl/data/s59/vla/vla_raw_s59.csv"
+sproul_text_file_path: "underwater-ssl/data/s59/vla/SproulToVLA.S59.txt"
+best_model_path: "best_model-scratch-s5-leftright-betanew-trainone.pth"
 parallel_mode: false
 ######################
 #   Simulated data   #
@@ -68,12 +68,13 @@ simulated_time_serires_folder_path:: "/mnt/researchfiles/ECE IMAPLE/cluster_data
 #######################
 # active storage path #
 #######################
-# pretrained_model_path: "/mnt/active_storage/qv23/DCASE2024/swell24/model_checkpoints/best_model-scratch-1-vla-real.pth"
-pretrained_model_path: "/mnt/active_storage/qv23/DCASE2024/swell24/model_checkpoints/best_model-ft-1-tla-real-yy.pth"
-# dataset_path: "/mnt/active_storage/qv23/DCASE2024/swell24/swellex-6folds-real.pkl"
-dataset_path: "/mnt/active_storage/qv23/DCASE2024/swell24/swellex-6folds-real-tla.pkl"
-# dataset_path: "/mnt/active_storage/qv23/DCASE2024/swell24/swellex-data-HLA-North-6-1sec.pkl"
+pretrained_model_path: "/mnt/active_storage/qv23/DCASE2024/swell24/net/model_checkpoints/best_model-scratch-s5.pth"
+# pretrained_model_path: "/mnt/active_storage/qv23/DCASE2024/swell24/tsnet/model_checkpoints/best_model-scratch-s5-betanew-full3500.pth"
+dataset_path: "/mnt/active_storage/qv23/DCASE2024/swell24/swellex-6folds-real-vla-raw.pkl"
+# dataset_path: "/mnt/active_storage/qv23/DCASE2024/swell24/swellex-6folds-real-tla.pkl"
 # dataset_path: "/mnt/active_storage/qv23/DCASE2024/swell24/swellex-data-normal-s59.pkl"
+# dataset_path: "/mnt/active_storage/qv23/DCASE2024/swell24/swellex-data-HLA-North-6-1sec.pkl"
+# dataset_path: "/mnt/active_storage/qv23/DCASE2024/swell24/swellex-data-normal-s59-raw.pkl"
 # dataset_path: "/mnt/active_storage/qv23/DCASE2024/swell24/swellex-6folds-real-hla-south.pkl"
 # dataset_path: "/mnt/active_storage/qv23/DCASE2024/swell24/swellex-real-raw-no-cross.pkl"
 # dataset_path: "/mnt/active_storage/qv23/DCASE2024/swell24/swellex-real-raw-up-50dbnoise.pkl"
@@ -81,8 +82,10 @@ dataset_path: "/mnt/active_storage/qv23/DCASE2024/swell24/swellex-6folds-real-tl
 # dataset_path: "/mnt/active_storage/qv23/DCASE2024/swell24/swellex-simu-raw-1.pkl"
 # dataset_path: "/mnt/active_storage/qv23/DCASE2024/swell24/swellex-real-raw-no-cross-noise.pkl"
 # dataset_path: "/mnt/active_storage/qv23/DCASE2024/swell24/swellex-simu-no-cross.pkl"
-# dataset_path: "/mnt/active_storage/qv23/DCASE2024/swell24/swellex-data-left-right.pkl"
-save_dir: "/mnt/active_storage/qv23/DCASE2024/swell24/model_checkpoints"
+#####
+# dataset_path: "/mnt/active_storage/qv23/DCASE2024/swell24/swellex-data-left-right-raw.pkl"
+# save_dir: "/mnt/active_storage/qv23/DCASE2024/swell24/model_checkpoints"
+save_dir: "/mnt/active_storage/qv23/DCASE2024/swell24/tsnet/model_checkpoints"
 ##############
 # local path #
 ##############

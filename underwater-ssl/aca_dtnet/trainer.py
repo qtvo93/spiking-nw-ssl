@@ -116,7 +116,7 @@ class Trainer(object):
                     f"Saved the best model with validation loss: {best_val_loss:.4f}"
                 )
             logging.info(
-                f"Epoch [{epoch+1}/{self.num_epochs}], LR: {scheduler.get_last_lr()[0]}, Train Loss: {total_loss / len(self.train_loader)}, Validation Loss: {val_loss}"
+                f"Epoch [{epoch+1}/{self.num_epochs}], Train Loss: {total_loss / len(self.train_loader)}, Validation Loss: {val_loss}"
             )
             # scheduler.step(val_loss)
 

@@ -98,7 +98,7 @@ class FeatureExtraction(object):
         
         # 7.932 7.042  5.953 5.087 4.251 3.382 2.574 1.800 1.147 0.905 1.396 2.179
         test_ranges = [7.932, 7.042, 5.953, 5.087, 4.251, 3.382, 2.574, 1.800, 1.147, 0.905, 1.396, 2.179]
-        
+        print(num_spectrograms)
         # Iterate through each spectrogram
         for i in range(num_spectrograms):
 
@@ -112,13 +112,20 @@ class FeatureExtraction(object):
             range_km = sproul_data.loc[closest_idx, "Range(km)"]
 
             filename = f"file_{i+1}.wav"
-            # if Params.normal_split:
+            # if Params.normal_split: # Normal
             fold = i % Params.total_folds + 1
             # else:
             #     if float(range_km) in test_ranges:
             #         fold = 6
             #     else:
             #         fold = i % 5 + 1
+            
+            # This is Secenario 3 Doppler testing
+            # if i > 3599:
+            #     fold = 6
+            # else:
+            #     fold = i % 5 + 1
+            
             target = float(range_km)
 
             new_row = pd.DataFrame(
@@ -222,11 +229,18 @@ class FeatureExtraction(object):
                 indices % 5 + 1
             )  # Folds will be 1 to total_folds
             # 7.932 7.042  5.953 5.087 4.251 3.382 2.574 1.800 1.147 0.905 1.396 2.179
-            test_ranges = [7.932, 7.042, 5.953, 5.087, 4.251, 3.382, 2.574, 1.800, 1.147, 0.905, 1.396, 2.179]
+            # test_ranges = [7.932, 7.042, 5.953, 5.087, 4.251, 3.382, 2.574, 1.800, 1.147, 0.905, 1.396, 2.179]
             for i in range(num_spectrograms):
                 range_km = labels[i * self.sampling_rate]
                 filename = f"file_{i+1}.wav"
-                if float(range_km) in test_ranges:
+                # This is for Scenario 2 testing
+                # if float(range_km) in test_ranges:
+                #     fold = 6
+                # else:
+                #     fold = fold_assignments[i]
+
+                # This is Secenario 3 Doppler testing
+                if i > 3599:
                     fold = 6
                 else:
                     fold = fold_assignments[i]

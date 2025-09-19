@@ -11,7 +11,7 @@ import os
 import logging
 import torch.nn as nn
 from torch.utils.data import DataLoader
-
+from typing import Optional, Sequence
 
 from utils.parameters import Params
 from utils.data_loader import CustomDataset
@@ -29,6 +29,178 @@ class Inference(object):
         self.test_loader = test_loader
         self.save_dir = Params.save_dir
         self.best_model_path = Params.best_model_path
+
+
+    def add_awgn(
+        self,
+        x: torch.Tensor,
+        snr_db: float,
+        *,
+        time_axis: int = -1,
+        eps: float = 1e-12,
+        seed: Optional[int] = 42,
+        clamp_silent: float = 0.0,  # e.g., 1e-6 to avoid blowing up silence
+    ) -> torch.Tensor:
+        """
+        Add white Gaussian noise at target SNR_dB.
+        - Per-channel SNR if x has a channel dim (keeps channel dim, averages over time only).
+        - For 2D (B, T) input, averages over time only.
+
+        Args:
+            x: (B, T) or (B, C, T) or similar; time axis specified by `time_axis`.
+            snr_db: target SNR in dB (power SNR).
+            time_axis: which axis is time; default last (-1).
+            clamp_silent: floor for signal RMS; set >0 to avoid huge noise on near-silent segments.
+
+        Returns:
+            x + noise with the requested SNR.
+        """
+        assert x.is_floating_point(), "x must be float"
+        # Move time axis to the end for convenience
+        if time_axis != -1:
+            perm = list(range(x.ndim))
+            perm[time_axis], perm[-1] = perm[-1], perm[time_axis]
+            x = x.permute(*perm)
+
+        # After permute, shapes:
+        # (B, T) -> (B, T)
+        # (B, C, T) -> (B, C, T)
+        # Compute power over time only (keep dims to broadcast)
+        dims = (-1,)
+        p_sig = x.pow(2).mean(dim=dims, keepdim=True)  # (B,1) or (B,C,1)
+
+        if clamp_silent > 0.0:
+            p_sig = torch.clamp(p_sig, min=clamp_silent**2)
+
+        snr_lin = 10.0 ** (snr_db / 10.0)
+        p_noise = torch.clamp(p_sig / snr_lin, min=eps)  # (B,1) or (B,C,1)
+
+        # Make white Gaussian noise on the same device/dtype
+        if seed is not None:
+            try:
+                gen = torch.Generator(device=x.device)
+            except TypeError:
+                gen = torch.Generator()
+            gen.manual_seed(seed)
+            noise = torch.randn(x.shape, device=x.device, dtype=x.dtype, generator=gen)
+        else:
+            noise = torch.randn_like(x)
+
+        # Normalize noise power per (B, C) or per (B) before scaling
+        p_noise_now = noise.pow(2).mean(dim=dims, keepdim=True)  # (B,1) or (B,C,1)
+        noise = noise * torch.sqrt(p_noise / (p_noise_now + eps))
+
+        y = x + noise
+
+        # Put axes back if we permuted
+        if time_axis != -1:
+            inv = list(range(y.ndim))
+            inv[time_axis], inv[-1] = inv[-1], inv[time_axis]
+            y = y.permute(*inv)
+
+        return y
+
+
+    def measure_snr_db(
+        self,
+        x_clean: torch.Tensor,
+        x_noisy: torch.Tensor,
+        *,
+        time_axis: int = -1,
+        eps: float = 1e-12,
+    ) -> torch.Tensor:
+        """Measure per-channel SNR over time only. Returns shape (B,1) or (B,C,1)."""
+        if time_axis != -1:
+            perm = list(range(x_clean.ndim))
+            perm[time_axis], perm[-1] = perm[-1], perm[time_axis]
+            x_clean = x_clean.permute(*perm)
+            x_noisy = x_noisy.permute(*perm)
+
+        dims = (-1,)
+        p_sig = x_clean.pow(2).mean(dim=dims, keepdim=True)
+        p_noise = (x_noisy - x_clean).pow(2).mean(dim=dims, keepdim=True)
+        snr = 10.0 * torch.log10(torch.clamp(p_sig, min=eps) / torch.clamp(p_noise, min=eps))
+        return snr
+
+    def add_awgn_correlated(self, x, snr_db, time_axis=-1, eps=1e-12, seed=42):
+        # shape (B,C,T) or (B,T)
+        if time_axis != -1:
+            perm = list(range(x.ndim)); perm[time_axis], perm[-1] = perm[-1], perm[time_axis]
+            x = x.permute(*perm)
+        dims = (-1,)
+        p_sig = x.pow(2).mean(dim=dims, keepdim=True)              # (B, C?, 1)
+        snr_lin = 10.0 ** (snr_db / 10.0)
+        p_noise = torch.clamp(p_sig / snr_lin, min=eps)
+
+        # one noise trace per (B,T), then broadcast to channels → fully correlated across C
+        if x.ndim == 3:
+            B, C, T = x.shape
+            gen = torch.Generator(device=x.device); 
+            if seed is not None: gen.manual_seed(seed)
+            base = torch.randn(B, 1, T, device=x.device, dtype=x.dtype, generator=gen)
+            noise = base.expand(B, C, T).contiguous()
+        else:
+            noise = torch.randn_like(x)
+
+        p_now = noise.pow(2).mean(dim=dims, keepdim=True)
+        noise = noise * torch.sqrt(p_noise / (p_now + eps))
+        y = x + noise
+
+        if time_axis != -1:
+            inv = list(range(y.ndim)); inv[time_axis], inv[-1] = inv[-1], inv[time_axis]
+            y = y.permute(*inv)
+        return y
+    
+    def add_awgn_partially_correlated(
+        self,
+        x: torch.Tensor, snr_db: float, rho: float = 0.8, *,
+        time_axis: int = -1, eps: float = 1e-12, seed: Optional[int] = 42,
+    ) -> torch.Tensor:
+        """Add white Gaussian noise with per-channel SNR and target inter-channel correlation rho."""
+        assert 0.0 <= rho <= 1.0 and x.is_floating_point()
+        # Put time last
+        if time_axis != -1:
+            perm = list(range(x.ndim)); perm[time_axis], perm[-1] = perm[-1], perm[time_axis]
+            x = x.permute(*perm)
+        # Shapes: (B,T) or (B,C,T)
+        dims = (-1,)
+        p_sig = x.pow(2).mean(dim=dims, keepdim=True)                            # (B,1,1) or (B,C,1)
+        snr_lin = 10.0 ** (snr_db / 10.0)
+        p_noise = torch.clamp(p_sig / snr_lin, min=eps)                          # desired noise power per ch
+
+        BCT = x.shape
+        device, dtype = x.device, x.dtype
+        gen = None
+        if seed is not None:
+            try:
+                gen = torch.Generator(device=device)
+            except TypeError:
+                gen = torch.Generator()
+            gen.manual_seed(seed)
+
+        if x.ndim == 3:
+            B, C, T = BCT
+            # shared component: one waveform per batch, broadcast to all channels
+            z_shared = torch.randn(B, 1, T, device=device, dtype=dtype, generator=gen)
+            # independent component: one per channel
+            z_indep  = torch.randn(B, C, T, device=device, dtype=dtype, generator=gen)
+            # target per-channel std for noise
+            sigma = torch.sqrt(p_noise)                                          # (B,C,1)
+            # mix shared + independent; this construction gives Corr_ij = rho
+            noise = ( (rho**0.5) * sigma * z_shared + (1 - rho)**0.5 * sigma * z_indep )
+        else:
+            # (B,T): correlation concept doesn’t apply; just AWGN
+            z = torch.randn_like(x) if gen is None else torch.randn(x.shape, device=device, dtype=dtype, generator=gen)
+            sigma = torch.sqrt(p_noise)                                          # (B,1)
+            noise = sigma * z
+
+        y = x + noise
+        # Restore original axis order
+        if time_axis != -1:
+            inv = list(range(y.ndim)); inv[time_axis], inv[-1] = inv[-1], inv[time_axis]
+            y = y.permute(*inv)
+        return y
+
 
     def sort_test_loader(self, test_loader):
         # Extract data from DataLoader
@@ -86,9 +258,21 @@ class Inference(object):
                 #     pass
                 # elif inputs.shape[2] == 16192:
                 #     inputs = nn.Conv1d(16192, 14784, 1)(inputs)
+                add_noise = True
+                if add_noise:
+                    SNR_lvl = 10
+                    logging.info(f"SNR is: {SNR_lvl}")
+                    p_value = 1
+                    # noisy = self.add_awgn(inputs, SNR_lvl, time_axis=-1, clamp_silent=0.0)
+                    noisy = self.add_awgn_correlated(inputs, SNR_lvl, time_axis=-1)
+                    # noisy = self.add_awgn_partially_correlated(inputs, snr_db=SNR_lvl, rho=p_value, time_axis=-1, seed=42)
 
-                # _, _, output = self.model(inputs)
-                output = self.model(inputs)
+                    snr_meas = self.measure_snr_db(inputs, noisy, time_axis=-1)
+                    logging.info(f"SNR_MEASUREMENT: {snr_meas}")
+                    # _, _, output = self.model(inputs)
+                    output = self.model(noisy)
+                else:
+                    output = self.model(inputs)
 
                 predicted_labels = output.cpu().numpy()
                 batch_targets = labels.cpu().numpy()
@@ -210,6 +394,20 @@ class Inference(object):
         # ax.scatter(
         #     indices, all_predictions, c="r", marker="x", label="Predicted Labels", s=8
         # )
+        # IF S59 and test all 6 folds, rearrange for a nicer plot (stack 6 folds instead of plot 1 by 1):
+        if "s59" in Params.dataset_path and Params.cross_validation_mode == True:
+            # folds = list of six 1-D arrays, all length L
+            # e.g., folds = [fold1, fold2, fold3, fold4, fold5, fold6]
+            n_folds = Params.total_folds
+            fold_len = all_predictions.shape[0] // n_folds
+
+            # Reshape to (folds, fold_len)
+            preds = all_predictions.reshape(n_folds, fold_len)
+            targs = all_targets.reshape(n_folds, fold_len)
+
+            # Transpose to (fold_len, folds) and flatten row-wise
+            all_predictions = preds.T.reshape(-1)
+            all_targets = targs.T.reshape(-1)
 
         # Select every 10th point
         indices = np.arange(1, len(all_targets) + 1)

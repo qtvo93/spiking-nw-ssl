@@ -10,10 +10,12 @@ from torch.utils.data import Dataset, DataLoader
 from sklearn.model_selection import train_test_split
 
 from utils.parameters import Params
-
+from utils.set_seed import SetSeed
 
 class CustomDataset(Dataset):
     def __init__(self, data):
+        self.set_seed = SetSeed(seed=42)
+        self.set_seed.set_seed()
         self.data = data
 
     def __len__(self):
@@ -27,7 +29,8 @@ class CustomDataset(Dataset):
 
 class CustomDataLoader(object):
     def __init__(self):
-        pass
+        self.set_seed = SetSeed(seed=42)
+        self.set_seed.set_seed()
 
     def load_data(self) -> tuple:
         """
@@ -86,7 +89,7 @@ class CustomDataLoader(object):
                             training_data_dict[2] + training_data_dict[3] + \
                             training_data_dict[4] + training_data_dict[5]
 
-                    # hard code this to load the right - receding data only
+                    # # hard code this to load the right - receding data only
                     # all_data = training_data_dict[5]
                     all_train_data, test_data = train_test_split(
                         all_data, test_size=Params.test_size, random_state=42

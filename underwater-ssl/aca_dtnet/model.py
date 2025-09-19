@@ -23,6 +23,287 @@ import matplotlib.pyplot as plt
 n_time_steps, begin_eval = 128, 0
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
+class AdaptiveGainControl(nn.Module):
+    def __init__(self, target_energy=1, adaptation_rate=0.2):
+        super(AdaptiveGainControl, self).__init__()
+        self.target_energy = target_energy
+        self.adaptation_rate = adaptation_rate
+
+    def forward(self, x):
+        energy = torch.mean(x**2, dim=-1, keepdim=True)
+        gain = self.target_energy / (energy + 1e-6)
+        x = x * gain * self.adaptation_rate + x * (1 - self.adaptation_rate)
+        return x
+    
+class ResBlock(nn.Module):
+    def __init__(self, in_channels, out_channels, rescaling=None):
+        super(ResBlock, self).__init__()
+
+        self.conv1 = nn.Conv2d(
+            in_channels, out_channels, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1)
+        )
+        self.bn1 = nn.BatchNorm2d(out_channels)
+        self.relu = nn.ReLU(inplace=True)
+
+        self.conv2 = nn.Conv2d(
+            out_channels,
+            out_channels,
+            kernel_size=(3, 3),
+            stride=(1, 1),
+            padding=(1, 1),
+        )
+        self.bn2 = nn.BatchNorm2d(out_channels)
+
+        self.ch_rescaling = rescaling
+
+    def forward(self, x):
+        identity = x
+        out = self.conv1(x)
+        out = self.bn1(out)
+        out = self.relu(out)
+
+        out = self.conv2(out)
+        out = self.bn2(out)
+
+        if self.ch_rescaling is not None:
+            identity = self.ch_rescaling(identity)
+
+        out += identity
+        out = self.relu(out)
+
+        return out
+
+
+    
+class ACA_DTNET1(pl.LightningModule):
+    def __init__(self, mel_input_channels, gcc_input_channels):
+        super(ACA_DTNET1, self).__init__()
+
+        self.set_seed = SetSeed(seed=42)
+        self.set_seed.set_seed()
+
+        self.mel_input_channels = mel_input_channels
+        self.gcc_input_channels = gcc_input_channels
+
+        self.ch_rescaling_1 = nn.Sequential(
+            nn.Conv2d(
+                self.mel_input_channels,
+                64,
+                kernel_size=3,
+                stride=1,
+                padding=1,
+                bias=False,
+            ),
+            nn.BatchNorm2d(64),
+        )
+        self.resnet1 = ResBlock(self.mel_input_channels, 64, self.ch_rescaling_1)
+
+        self.ch_rescaling_2 = nn.Sequential(
+            nn.Conv2d(64, 128, kernel_size=3, stride=1, padding=1, bias=False),
+            nn.BatchNorm2d(128),
+        )
+        self.resnet2 = ResBlock(64, 128, self.ch_rescaling_2)
+
+        self.ch_rescaling_3 = nn.Sequential(
+            nn.Conv2d(128, 256, kernel_size=3, stride=1, padding=1, bias=False),
+            nn.BatchNorm2d(256),
+        )
+        self.resnet3 = ResBlock(128, 256, self.ch_rescaling_3)
+
+        self.ch_rescaling_4 = nn.Sequential(
+            nn.Conv2d(256, 512, kernel_size=3, stride=1, padding=1, bias=False),
+            nn.BatchNorm2d(512),
+        )
+        self.resnet4 = ResBlock(256, 512, self.ch_rescaling_4)
+
+        self.ch_rescaling_5 = nn.Sequential(
+            nn.Conv2d(
+                self.gcc_input_channels,
+                64,
+                kernel_size=3,
+                stride=1,
+                padding=1,
+                bias=False,
+            ),
+            nn.BatchNorm2d(64),
+        )
+        self.resnet5 = ResBlock(self.gcc_input_channels, 64, self.ch_rescaling_5)
+
+        self.ch_rescaling_6 = nn.Sequential(
+            nn.Conv2d(64, 128, kernel_size=3, stride=1, padding=1, bias=False),
+            nn.BatchNorm2d(128),
+        )
+        self.resnet6 = ResBlock(64, 128, self.ch_rescaling_6)
+
+        self.ch_rescaling_7 = nn.Sequential(
+            nn.Conv2d(128, 256, kernel_size=3, stride=1, padding=1, bias=False),
+            nn.BatchNorm2d(256),
+        )
+        self.resnet7 = ResBlock(128, 256, self.ch_rescaling_7)
+
+        self.ch_rescaling_8 = nn.Sequential(
+            nn.Conv2d(256, 512, kernel_size=3, stride=1, padding=1, bias=False),
+            nn.BatchNorm2d(512),
+        )
+        self.resnet8 = ResBlock(256, 512, self.ch_rescaling_8)
+
+        self.max_pooling1 = nn.MaxPool2d((5, 4))
+        self.max_pooling2 = nn.MaxPool2d((1, 4))
+        self.max_pooling3 = nn.MaxPool2d((1, 2))
+        self.max_pooling4 = nn.MaxPool2d((1, 1))
+
+        self.dropout = nn.Dropout2d(p=0.05)
+
+        self.stitch = nn.ParameterList(
+            [
+                nn.Parameter(torch.FloatTensor(128, 2, 2).uniform_(0.1, 0.9)),
+                nn.Parameter(torch.FloatTensor(256, 2, 2).uniform_(0.1, 0.9)),
+                nn.Parameter(torch.FloatTensor(512, 2, 2).uniform_(0.1, 0.9)),
+                nn.Parameter(torch.FloatTensor(512, 2, 2).uniform_(0.1, 0.9)),
+            ]
+        )
+
+        self.conformer1 = Conformer(
+            dim=512,
+            depth=2,
+            dim_head=64,
+            heads=8,
+            ff_mult=4,
+            conv_expansion_factor=2,
+            conv_kernel_size=24,
+            attn_dropout=0.1,
+            ff_dropout=0.05,
+            conv_dropout=0.05,
+        )
+        self.conformer2 = Conformer(
+            dim=512,
+            depth=2,
+            dim_head=64,
+            heads=8,
+            ff_mult=4,
+            conv_expansion_factor=2,
+            conv_kernel_size=24,
+            attn_dropout=0.1,
+            ff_dropout=0.05,
+            conv_dropout=0.05,
+        )
+
+        self.fc = nn.Linear(512, 128)
+
+        self.doa_act = nn.Tanh()
+        self.sed_act = nn.Sigmoid()
+        self.fc_combined = nn.Linear(512, 1)
+        self.fc_singleton = nn.Linear(15, 1)
+
+        self.adaptive_gain_control = AdaptiveGainControl()
+
+
+    def forward(self, x):
+        x = self.adaptive_gain_control(x)
+        x_mel = x[:, :, : self.mel_input_channels * 64]
+        x_mel = x_mel.contiguous().view(x_mel.size(0), 75, self.mel_input_channels, 64)
+        x_mel = x_mel.permute(0, 2, 1, 3)
+
+        x_gcc = x[:, :, self.mel_input_channels * 64 :]
+        x_gcc = x_gcc.contiguous().view(x_gcc.size(0), 75, self.gcc_input_channels, 64)
+        x_gcc = x_gcc.permute(0, 2, 1, 3)
+
+        x_mel = self.resnet1(x_mel)
+        x_gcc = self.resnet5(x_gcc)
+
+        x_mel = self.max_pooling1(x_mel)
+        x_gcc = self.max_pooling1(x_gcc)
+
+        for i in range(3):
+            sed_resnet = getattr(self, f"resnet{i+2}")
+            doa_resnet = getattr(self, f"resnet{i+6}")
+
+            x_mel = sed_resnet(x_mel)
+            x_gcc = doa_resnet(x_gcc)
+
+            stitch_tensor_1 = self.stitch[i][:, 0, 0]
+            # Check if dimensions match, adjust if necessary
+            if stitch_tensor_1.size(0) != x_mel.size(1):
+                if stitch_tensor_1.size(0) > x_mel.size(1):
+                    stitch_tensor_1 = stitch_tensor_1[: x.size(1)]
+                else:
+                    stitch_tensor_1 = stitch_tensor_1.repeat(
+                        x.size(1) // stitch_tensor_1.size(0)
+                    )
+            stitch_tensor_2 = self.stitch[i][:, 0, 1]
+            # Check if dimensions match, adjust if necessary
+            if stitch_tensor_2.size(0) != x_gcc.size(1):
+                if stitch_tensor_2.size(0) > x_gcc.size(1):
+                    stitch_tensor_2 = stitch_tensor_2[: x.size(1)]
+                else:
+                    stitch_tensor_2 = stitch_tensor_2.repeat(
+                        x.size(1) // stitch_tensor_2.size(0)
+                    )
+
+            stitch_tensor_3 = self.stitch[i][:, 1, 0]
+            # Check if dimensions match, adjust if necessary
+            if stitch_tensor_3.size(0) != x_mel.size(1):
+                if stitch_tensor_3.size(0) > x_mel.size(1):
+                    stitch_tensor_3 = stitch_tensor_3[: x.size(1)]
+                else:
+                    stitch_tensor_3 = stitch_tensor_3.repeat(
+                        x.size(1) // stitch_tensor_3.size(0)
+                    )
+
+            stitch_tensor_4 = self.stitch[i][:, 1, 1]
+            # Check if dimensions match, adjust if necessary
+            if stitch_tensor_4.size(0) != x_gcc.size(1):
+                if stitch_tensor_4.size(0) > x_gcc.size(1):
+                    stitch_tensor_4 = stitch_tensor_4[: x.size(1)]
+                else:
+                    stitch_tensor_4 = stitch_tensor_4.repeat(
+                        x.size(1) // stitch_tensor_4.size(0)
+                    )
+
+            x_mel = torch.einsum(
+                "c, nctf -> nctf", stitch_tensor_1, x_mel
+            ) + torch.einsum("c, nctf -> nctf", stitch_tensor_2, x_gcc)
+            x_gcc = torch.einsum(
+                "c, nctf -> nctf", stitch_tensor_3, x_mel
+            ) + torch.einsum("c, nctf -> nctf", stitch_tensor_4, x_gcc)
+
+            max_pooling_method = getattr(self, f"max_pooling{i+2}")
+            x_mel = max_pooling_method(x_mel)
+            x_gcc = max_pooling_method(x_gcc)
+
+            x_mel = self.dropout(x_mel)
+            x_gcc = self.dropout(x_gcc)
+
+        x_mel = self.max_pooling3(x_mel)
+        x_gcc = self.max_pooling3(x_gcc)
+
+        x_mel = x_mel.transpose(1, 2).contiguous()
+        x_gcc = x_gcc.transpose(1, 2).contiguous()
+        x_mel = x_mel.view(x_mel.shape[0], x_mel.shape[1], -1).contiguous()
+        x_gcc = x_gcc.view(x_gcc.shape[0], x_gcc.shape[1], -1).contiguous()
+        x_mel = self.conformer1(x_mel)
+        x_gcc = self.conformer2(x_gcc)
+        # x1 = x_mel
+        # x2 = x_gcc
+
+        x_mel = torch.einsum(
+            "c, ntc -> ntc", self.stitch[3][:, 0, 0], x_mel
+        ) + torch.einsum("c, ntc -> ntc", self.stitch[3][:, 0, 1], x_gcc)
+        x_gcc = torch.einsum(
+            "c, ntc -> ntc", self.stitch[3][:, 1, 0], x_mel
+        ) + torch.einsum("c, ntc -> ntc", self.stitch[3][:, 1, 1], x_gcc)
+
+        x_mel = self.sed_act(x_mel)
+        x_gcc = self.doa_act(x_gcc)
+
+        x_combined = x_mel + x_gcc  # Element-wise addition
+        x_combined = self.fc_combined(x_combined)
+        x_combined = x_combined.view(x_combined.size(0), -1)
+        x_combined = self.fc_singleton(x_combined)
+
+        return x_combined
+    
+
 class SpikingNeuronLayer(nn.Module):
 
     def __init__(self, device, n_inputs=28*28, n_hidden=100, decay_multiplier=0.9, threshold=2.0, penalty_threshold=2.5):
@@ -250,9 +531,9 @@ class ACA_DTNET(pl.LightningModule):
         # self.positional_encoding = PositionalEncoding(embed_dim=256, dropout=0.1, max_len=11)
 
         self.spike_grad = surrogate.fast_sigmoid(slope=25)
-        self.lif1 = snn.Leaky(beta=0.9, spike_grad=self.spike_grad)
-        self.lif2 = snn.Leaky(beta=0.9, spike_grad=self.spike_grad)
-        self.lif3 = snn.Leaky(beta=0.9, spike_grad=self.spike_grad)
+        self.lif1 = snn.Leaky(beta=0.9956, spike_grad=self.spike_grad)
+        self.lif2 = snn.Leaky(beta=0.9821, spike_grad=self.spike_grad)
+        self.lif3 = snn.Leaky(beta=0.930, spike_grad=self.spike_grad)
         # self.lif4 = snn.Leaky(beta=0.9, spike_grad=self.spike_grad)
 
         # encoder_layer = nn.TransformerEncoderLayer(d_model=256, nhead=8, dim_feedforward=256, dropout=0.2)
@@ -265,6 +546,9 @@ class ACA_DTNET(pl.LightningModule):
         # self.minmaxscaler = MinMaxScaler()
         # self.save_file = True
         # self.file_count = 1
+        self.channel_proj = None
+        self.fixed_channels = 21
+        self.adaptive_pooling = nn.AdaptiveAvgPool1d(1500)
 
     def forward(self, x):
         # out_dict = {}
@@ -280,6 +564,14 @@ class ACA_DTNET(pl.LightningModule):
         norm_x = torch.tensor(x_cpu, dtype=x.dtype).to(x.device)
 
         x = norm_x.to(x.device).transpose(1, 2).contiguous()
+
+        # if self.channel_proj is None or x.shape[1] != self.fixed_channels:
+        #     # Dynamically create 1x1 conv to match input channels
+        #     self.channel_proj = nn.Conv1d(x.shape[1], self.fixed_channels, kernel_size=1).to(x.device)
+
+        # x_mel = self.adaptive_pooling(x)
+        # x_mel = self.channel_proj(x_mel
+
         # print("after Norm", x)
         # x = self.sequence_CNN(x)
         # x = x.transpose(1, 2).contiguous()
@@ -312,15 +604,16 @@ class ACA_DTNET(pl.LightningModule):
         # print("after_norm", x_mel)
         # x_mel = x[:, :11, :]
 
-        # x_gcc = x[:, 11:, :]
-        if x.size(1) == 21:
-            x_mel = self.resnet00(x)
-        elif x.size(1) == 22:
-            x_mel = self.resnet01(x)
+        # # x_gcc = x[:, 11:, :]
+        # if x.size(1) == 21:
+        #     x_mel = self.resnet00(x)
+        # elif x.size(1) == 22:
+        #     x_mel = self.resnet01(x)
+
         # x_gcc = self.resnet1(x_gcc)
         # out_dict["cnn1"] = x_mel.detach().cpu().numpy()
         # print("CNN1", x_mel)
-
+        x_mel = self.resnet00(x)
         x_mel = self.max_pooling1(x_mel) # try pool after steps below
         # x_mel = self.dropout(x_mel)
 
