@@ -13,22 +13,14 @@ class Params(object):
     wandb_traning_name = "swellex-run-no-1"
     run_with_wandb = False
     batch_size = 32
-    spectrogram_duration = 1.0
+    sample_duration = 1.0
     data_format_mode = "time_series"
     audio_channels = 21
-    mel_channels = 21
-    gcc_channels = 210
     learning_rate = 1e-4
     num_epochs = 1000
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     optimizer = "Adam"
     sampling_rate = 200
-    n_fft = 1024
-    n_mels_bins = 64
-    hop_length = 20
-    time_mask = 32
-    freq_mask = 12
-    data_augmentation = None  # (Accepted: "freq_masking", "time_masking", 1,2,3,4,5,6,...,48,64, ... (int for SNR level))
     multiple_datasets_mode = False
     train_datasets = []
     validation_datasets = []
@@ -51,16 +43,19 @@ class Params(object):
     ######################
     #   Simulated data   #
     ######################
+    # This is for further experiments with simulated data, not used in the main paper of SA-NET
     simulated_data_mode = False
-    simulated_num_spectrograms = 4500
-    simulated_data_labels_path = "/mnt/researchfiles/ECE IMAPLE/cluster_data/archive/underwater_acoustics/Simulated_Datasets/Scenario_1/Chunked_Time_Series/dataset_1/labels/range_labels.pkl"
-    simulated_time_serires_folder_path = "/mnt/researchfiles/ECE IMAPLE/cluster_data/archive/underwater_acoustics/Simulated_Datasets/Scenario_1/Chunked_Time_Series/dataset_1/features"
+    simulated_num_samples = 4500
+    simulated_data_labels_path = "/mnt/researchfiles/cluster_data/archive/underwater_acoustics/Simulated_Datasets/Scenario_1/Chunked_Time_Series/dataset_1/labels/range_labels.pkl"
+    simulated_time_serires_folder_path = "/mnt/researchfiles/cluster_data/archive/underwater_acoustics/Simulated_Datasets/Scenario_1/Chunked_Time_Series/dataset_1/features"
     #######################
     # active storage path #
     #######################
-    pretrained_model_path = "/mnt/active_storage/qv23/DCASE2024/swell24/model_checkpoints/best_model_1-simu.pth"
-    dataset_path = "/mnt/active_storage/qv23/DCASE2024/swell24/swellex-6folds-real.pkl"
-    save_dir = "/mnt/active_storage/qv23/DCASE2024/swell24/model_checkpoints"
+    pretrained_model_path = (
+        "/mnt/active_storage/swell24/model_checkpoints/best_model_1-simu.pth"
+    )
+    dataset_path = "/mnt/active_storage/swell24/swellex-6folds-real.pkl"
+    save_dir = "/mnt/active_storage/swell24/model_checkpoints"
 
     @classmethod
     def load_from_yaml(cls, params_file):

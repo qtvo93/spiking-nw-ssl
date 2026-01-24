@@ -1,47 +1,41 @@
 ---
 # This file contains the parameters for the training and testing of the model.
-wandb_training_project: "aca-dtnet"
-wandb_training_name: "swellex-run-real-new-arch"
+
+# WandB parameters, can be ignored if not using WandB
+wandb_training_project: "sa-net"
+wandb_training_name: "swellex-run-newbeta-1"
 run_with_wandb: false
+
+# Training parameters
 batch_size: 32
-spectrogram_duration: 1.0
-# (Accepted: "time_series", "chunked_list")
-data_format_mode: "time_series"
+sample_duration: 1.0
+data_format_mode: "time_series" # (Accepted: "time_series", "chunked_list")
 audio_channels: 21
-mel_channels: 21
-gcc_channels: 210 # 378, 210-21
 learning_rate: 1e-4
-num_epochs: 0
-# (Accepted: "cuda", "cpu")
-device: "cuda"
+num_epochs: 10
+device: "cuda" # (Accepted: "cuda", "cpu")
 optimizer: "Adam"
 sampling_rate: 1500
 list_of_chunks_mode: false
-n_fft: 1024
-n_mels_bins: 64
-hop_length: 20
-time_mask: 32
-freq_mask: 12
-# (Accepted: "freq_masking", "time_masking", 1,2,3,4,5,6,...,48,64, ... (int for SNR level))
-data_augmentation: null
-# Multiple datasets mode
-multiple_datasets_mode: false
-# Provide the list of dataset paths
+
+# Multiple datasets - experiment, when used, provide the dataset paths below
+multiple_datasets_mode: false 
 train_datasets: []
 validation_datasets: []
 test_datasets: []
-# The following parameters are for the single dataset mode
-cross_validation_mode: true
+
+# The following parameters are for the single dataset path mode
 # if cross_validation_mode = true, provide the total_folds, train_folds, validation_folds, and test_folds
 # if cross_validation_mode = false, provide the test_size
+# use either mode only, not both, when one mode is used, the other parameter is ignored
+cross_validation_mode: true
 total_folds: 6
 train_folds: [0, 1, 2, 3]
 validation_folds: [4]
 test_folds: [5]
 test_size: 0.7
 run_inference_mode: true
-# (If finetune = True, pretrained_model_path must be provided)
-finetune_mode: true
+finetune_mode: true # If finetune = true, pretrained_model_path must be provided
 log_verbose: false
 print_first_10th_predictions: false
 prediction_output_image_plot: "true_vs_predicted_labelsS5-newbeta-0.png"
@@ -49,56 +43,6 @@ csv_file_path: "underwater-ssl/data/s59/vla/vla_raw_s59.csv"
 sproul_text_file_path: "underwater-ssl/data/s59/vla/SproulToVLA.S59.txt"
 best_model_path: "best_model-scratch-s5-leftright-betanew-trainone.pth"
 parallel_mode: false
-######################
-#   Simulated data   #
-######################
-simulated_data_mode: false
-simulated_num_spectrograms: 10000
-# simulated_data_labels_path: "/mnt/active_storage/qv23/simulated_swellex_data/new_data/labels/range_labels.pkl"
-# simulated_time_serires_folder_path: "/mnt/active_storage/qv23/simulated_swellex_data/new_data/time_series"
-# simulated_data_labels_path: "/mnt/researchfiles/ECE IMAPLE/cluster_data/user_data/qv23/datasets/labels/range.pkl"
-# simulated_time_serires_folder_path: "/mnt/researchfiles/ECE IMAPLE/cluster_data/user_data/qv23/datasets/features"
-# server 2
-# simulated_data_labels_path: "/mnt/researchfiles/ECE IMAPLE/cluster_data/archive/underwater_acoustics/Simulated_Datasets/dataset_2/merged_chunked_time_series_labels/range_labels.pkl"
-# simulated_time_serires_folder_path: "/mnt/researchfiles/ECE IMAPLE/cluster_data/archive/underwater_acoustics/Simulated_Datasets/dataset_2/merged_chunked_time_series_features/"
-# server 1
-simulated_data_labels_path: "/mnt/researchfiles/ECE IMAPLE/cluster_data/archive/underwater_acoustics/Simulated_Datasets/Scenario_1/Chunked_Time_Series/dataset_1/labels/range_labels.pkl"
-simulated_time_serires_folder_path:: "/mnt/researchfiles/ECE IMAPLE/cluster_data/archive/underwater_acoustics/Simulated_Datasets/Scenario_1/Chunked_Time_Series/dataset_1/features"
-
-#######################
-# active storage path #
-#######################
-pretrained_model_path: "/mnt/active_storage/qv23/DCASE2024/swell24/net/model_checkpoints/best_model-scratch-s5.pth"
-# pretrained_model_path: "/mnt/active_storage/qv23/DCASE2024/swell24/tsnet/model_checkpoints/best_model-scratch-s5-betanew-full3500.pth"
-dataset_path: "/mnt/active_storage/qv23/DCASE2024/swell24/swellex-6folds-real-vla-raw.pkl"
-# dataset_path: "/mnt/active_storage/qv23/DCASE2024/swell24/swellex-6folds-real-tla.pkl"
-# dataset_path: "/mnt/active_storage/qv23/DCASE2024/swell24/swellex-data-normal-s59.pkl"
-# dataset_path: "/mnt/active_storage/qv23/DCASE2024/swell24/swellex-data-HLA-North-6-1sec.pkl"
-# dataset_path: "/mnt/active_storage/qv23/DCASE2024/swell24/swellex-data-normal-s59-raw.pkl"
-# dataset_path: "/mnt/active_storage/qv23/DCASE2024/swell24/swellex-6folds-real-hla-south.pkl"
-# dataset_path: "/mnt/active_storage/qv23/DCASE2024/swell24/swellex-real-raw-no-cross.pkl"
-# dataset_path: "/mnt/active_storage/qv23/DCASE2024/swell24/swellex-real-raw-up-50dbnoise.pkl"
-# dataset_path: "/mnt/active_storage/qv23/DCASE2024/swell24/swellex-real-raw-half.pkl"
-# dataset_path: "/mnt/active_storage/qv23/DCASE2024/swell24/swellex-simu-raw-1.pkl"
-# dataset_path: "/mnt/active_storage/qv23/DCASE2024/swell24/swellex-real-raw-no-cross-noise.pkl"
-# dataset_path: "/mnt/active_storage/qv23/DCASE2024/swell24/swellex-simu-no-cross.pkl"
-#####
-# dataset_path: "/mnt/active_storage/qv23/DCASE2024/swell24/swellex-data-left-right-raw.pkl"
-# save_dir: "/mnt/active_storage/qv23/DCASE2024/swell24/model_checkpoints"
-save_dir: "/mnt/active_storage/qv23/DCASE2024/swell24/tsnet/model_checkpoints"
-##############
-# local path #
-##############
-# save_dir: "/Users/qtvo/Desktop/clean-code-swell/underwater-sound-source-localization/model_checkpoints"
-# dataset_path: "/Users/qtvo/Desktop/clean-code-swell/underwater-sound-source-localization/data/swellex-data-normal-s5.pkl"
-# dataset_path: "output.pkl"
-# csv_file_path: "/Users/qtvo/Desktop/clean-code-swell/underwater-sound-source-localization/data/s5/vla/vla_raw.csv"
-# sproul_text_file_path: "/Users/qtvo/Desktop/clean-code-swell/underwater-sound-source-localization/data/s5/vla/SproulToVLA.S5.txt"
-# pretrained_model_path: "/Users/qtvo/Desktop/clean-code-swell/underwater-sound-source-localization/model_checkpoints/best_model_1.pth"
-
-########################
-# same script location #
-########################
-# dataset_path: "output-standard-6folds-s5.pkl"
-# pretrained_model_path: "model_checkpoints/best_model_1.pth"
-# save_dir: "model_checkpoints"
+pretrained_model_path: "/mnt/active_storage/swell24/net/model_checkpoints/best_model-scratch-s5.pth"
+dataset_path: "/mnt/active_storage/swell24/swellex-6folds-real-vla-raw.pkl"
+save_dir: "/mnt/active_storage/swell24/tsnet/model_checkpoints"

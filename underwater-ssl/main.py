@@ -137,7 +137,7 @@ def feature_extractor():
             num_spectrograms = Params.simulated_num_spectrograms
         else:
             num_spectrograms = int(
-                len(data_array) / (Params.sampling_rate * Params.spectrogram_duration)
+                len(data_array) / (Params.sampling_rate * Params.sample_duration)
             )
         metadata = feature_extraction.generate_metadata_for_simulated_data(
             num_spectrograms=num_spectrograms,
@@ -148,11 +148,11 @@ def feature_extractor():
         data_array = feature_extraction.load_data_from_csv()
 
         num_spectrograms = int(
-            len(data_array) / (Params.sampling_rate * Params.spectrogram_duration)
+            len(data_array) / (Params.sampling_rate * Params.sample_duration)
         )
         metadata = feature_extraction.generate_metadata(
             num_spectrograms=num_spectrograms,
-            spectrogram_duration=Params.spectrogram_duration,
+            sample_duration=Params.sample_duration,
         )
 
     feature_extraction.extract_features(

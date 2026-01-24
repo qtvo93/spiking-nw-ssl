@@ -81,14 +81,14 @@ class FeatureExtraction(object):
         return sproul_data
 
     def generate_metadata(
-        self, num_spectrograms: int, spectrogram_duration: float
+        self, num_spectrograms: int, sample_duration: float
     ) -> pd.DataFrame:
         """
         Generate metadata for the dataset
 
         Args:
             num_spectrograms: number of spectrograms
-            spectrogram_duration: duration of the spectrogram
+            sample_duration: duration of the spectrogram
 
         Returns:
             metadata: metadata for the dataset
@@ -115,7 +115,7 @@ class FeatureExtraction(object):
         # Iterate through each spectrogram
         for i in range(num_spectrograms):
 
-            timestamp = i * spectrogram_duration
+            timestamp = i * sample_duration
 
             # Convert the Duration column to seconds
             sproul_data["Duration_seconds"] = sproul_data["Duration"] * 60
@@ -416,7 +416,7 @@ class FeatureExtraction(object):
         #     self.sampling_rate = float(self.sampling_rate)
         #     total_seconds = len(data_array) // self.sampling_rate
         #     logging.info(f"total_seconds: {total_seconds}")
-        #     num_slices = total_seconds // Params.spectrogram_duration
+        #     num_slices = total_seconds // Params.sample_duration
 
         #     # Compute the exact indices using cumulative rounding
         #     start_indices = np.round(np.arange(0, total_seconds) * self.sampling_rate).astype(int)
