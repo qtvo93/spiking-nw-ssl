@@ -3,6 +3,7 @@ import torch
 import snntorch as snn
 import matplotlib.pyplot as plt
 
+
 class ModelInspector:
     def __init__(self, model, save_dir="./"):
         self.model = model
@@ -13,9 +14,15 @@ class ModelInspector:
     def register_hooks(self):
         for name, module in self.model.named_modules():
             if isinstance(module, (torch.nn.Conv1d, snn.Leaky)):
-                self.hooks.append(module.register_forward_hook(self._save_feature_maps(name)))
-            elif isinstance(module, (torch.nn.ReLU, torch.nn.Linear, torch.nn.BatchNorm1d)):
-                self.hooks.append(module.register_forward_hook(self._save_activations(name)))
+                self.hooks.append(
+                    module.register_forward_hook(self._save_feature_maps(name))
+                )
+            elif isinstance(
+                module, (torch.nn.ReLU, torch.nn.Linear, torch.nn.BatchNorm1d)
+            ):
+                self.hooks.append(
+                    module.register_forward_hook(self._save_activations(name))
+                )
 
     def _save_feature_maps(self, name):
         def hook(module, input, output):
@@ -44,10 +51,11 @@ class ModelInspector:
                     ax.set_xticks([])
                     ax.set_yticks([])
                 else:
-                    ax.axis('off')
+                    ax.axis("off")
             plt.tight_layout()
             plt.savefig(f"{self.save_dir}/{name}_feature_maps.png")
             plt.close()
+
         return hook
 
     def _save_activations(self, name):
@@ -59,17 +67,20 @@ class ModelInspector:
             plt.title(f"Activation Histogram - {name}")
             plt.savefig(f"{self.save_dir}/{name}_activation_hist.png")
             plt.close()
+
         return hook
 
     def save_weights(self):
         for name, param in self.model.named_parameters():
-            if 'weight' in name and param.requires_grad:
+            if "weight" in name and param.requires_grad:
                 w = param.detach().cpu()
                 # torch.save(w, f"{self.save_dir}/{name.replace('.', '_')}_weights.pt")
                 plt.figure()
                 plt.hist(w.numpy().flatten(), bins=100)
                 plt.title(f"Weight Histogram - {name}")
-                plt.savefig(f"{self.save_dir}/{name.replace('.', '_')}_weights_hist.png")
+                plt.savefig(
+                    f"{self.save_dir}/{name.replace('.', '_')}_weights_hist.png"
+                )
                 plt.close()
 
     def visualize_attention(self, attn_weights, name):
@@ -85,7 +96,7 @@ class ModelInspector:
         if num_heads == 1:
             axes = [axes]
         for i, ax in enumerate(axes):
-            ax.imshow(attn_weights[i].detach().cpu(), cmap='inferno', aspect='auto')
+            ax.imshow(attn_weights[i].detach().cpu(), cmap="inferno", aspect="auto")
             ax.set_title(f"Head {i}")
             ax.set_xlabel("Key")
             ax.set_ylabel("Query")

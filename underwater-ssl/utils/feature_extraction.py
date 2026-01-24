@@ -81,28 +81,41 @@ class FeatureExtraction(object):
         return sproul_data
 
     def generate_metadata(
-        self, num_spectrograms: int, spectrogram_duration: float
+        self, num_spectrograms: int, sample_duration: float
     ) -> pd.DataFrame:
         """
         Generate metadata for the dataset
 
         Args:
             num_spectrograms: number of spectrograms
-            spectrogram_duration: duration of the spectrogram
+            sample_duration: duration of the spectrogram
 
         Returns:
             metadata: metadata for the dataset
         """
         metadata = pd.DataFrame(columns=["filename", "range_km", "fold", "target"])
         sproul_data = self.load_sproul_labels_and_preprocess()
-        
+
         # 7.932 7.042  5.953 5.087 4.251 3.382 2.574 1.800 1.147 0.905 1.396 2.179
-        test_ranges = [7.932, 7.042, 5.953, 5.087, 4.251, 3.382, 2.574, 1.800, 1.147, 0.905, 1.396, 2.179]
+        test_ranges = [
+            7.932,
+            7.042,
+            5.953,
+            5.087,
+            4.251,
+            3.382,
+            2.574,
+            1.800,
+            1.147,
+            0.905,
+            1.396,
+            2.179,
+        ]
         print(num_spectrograms)
         # Iterate through each spectrogram
         for i in range(num_spectrograms):
 
-            timestamp = i * spectrogram_duration
+            timestamp = i * sample_duration
 
             # Convert the Duration column to seconds
             sproul_data["Duration_seconds"] = sproul_data["Duration"] * 60
@@ -119,13 +132,13 @@ class FeatureExtraction(object):
             #         fold = 6
             #     else:
             #         fold = i % 5 + 1
-            
+
             # This is Secenario 3 Doppler testing
             # if i > 3599:
             #     fold = 6
             # else:
             #     fold = i % 5 + 1
-            
+
             target = float(range_km)
 
             new_row = pd.DataFrame(
@@ -226,7 +239,8 @@ class FeatureExtraction(object):
             # Assign folds randomly but evenly
             fold_assignments = (
                 # indices % Params.total_folds + 1
-                indices % 5 + 1
+                indices % 5
+                + 1
             )  # Folds will be 1 to total_folds
             # 7.932 7.042  5.953 5.087 4.251 3.382 2.574 1.800 1.147 0.905 1.396 2.179
             # test_ranges = [7.932, 7.042, 5.953, 5.087, 4.251, 3.382, 2.574, 1.800, 1.147, 0.905, 1.396, 2.179]
@@ -402,7 +416,7 @@ class FeatureExtraction(object):
         #     self.sampling_rate = float(self.sampling_rate)
         #     total_seconds = len(data_array) // self.sampling_rate
         #     logging.info(f"total_seconds: {total_seconds}")
-        #     num_slices = total_seconds // Params.spectrogram_duration
+        #     num_slices = total_seconds // Params.sample_duration
 
         #     # Compute the exact indices using cumulative rounding
         #     start_indices = np.round(np.arange(0, total_seconds) * self.sampling_rate).astype(int)
