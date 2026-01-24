@@ -30,75 +30,6 @@ class Inference(object):
         self.save_dir = Params.save_dir
         self.best_model_path = Params.best_model_path
 
-    def add_awgn(
-        self,
-        x: torch.Tensor,
-        snr_db: float,
-        *,
-        time_axis: int = -1,
-        eps: float = 1e-12,
-        seed: Optional[int] = 42,
-        clamp_silent: float = 0.0,  # e.g., 1e-6 to avoid blowing up silence
-    ) -> torch.Tensor:
-        """
-        Add white Gaussian noise at target SNR_dB.
-        - Per-channel SNR if x has a channel dim (keeps channel dim, averages over time only).
-        - For 2D (B, T) input, averages over time only.
-
-        Args:
-            x: (B, T) or (B, C, T) or similar; time axis specified by `time_axis`.
-            snr_db: target SNR in dB (power SNR).
-            time_axis: which axis is time; default last (-1).
-            clamp_silent: floor for signal RMS; set >0 to avoid huge noise on near-silent segments.
-
-        Returns:
-            x + noise with the requested SNR.
-        """
-        assert x.is_floating_point(), "x must be float"
-        # Move time axis to the end for convenience
-        if time_axis != -1:
-            perm = list(range(x.ndim))
-            perm[time_axis], perm[-1] = perm[-1], perm[time_axis]
-            x = x.permute(*perm)
-
-        # After permute, shapes:
-        # (B, T) -> (B, T)
-        # (B, C, T) -> (B, C, T)
-        # Compute power over time only (keep dims to broadcast)
-        dims = (-1,)
-        p_sig = x.pow(2).mean(dim=dims, keepdim=True)  # (B,1) or (B,C,1)
-
-        if clamp_silent > 0.0:
-            p_sig = torch.clamp(p_sig, min=clamp_silent**2)
-
-        snr_lin = 10.0 ** (snr_db / 10.0)
-        p_noise = torch.clamp(p_sig / snr_lin, min=eps)  # (B,1) or (B,C,1)
-
-        # Make white Gaussian noise on the same device/dtype
-        if seed is not None:
-            try:
-                gen = torch.Generator(device=x.device)
-            except TypeError:
-                gen = torch.Generator()
-            gen.manual_seed(seed)
-            noise = torch.randn(x.shape, device=x.device, dtype=x.dtype, generator=gen)
-        else:
-            noise = torch.randn_like(x)
-
-        # Normalize noise power per (B, C) or per (B) before scaling
-        p_noise_now = noise.pow(2).mean(dim=dims, keepdim=True)  # (B,1) or (B,C,1)
-        noise = noise * torch.sqrt(p_noise / (p_noise_now + eps))
-
-        y = x + noise
-
-        # Put axes back if we permuted
-        if time_axis != -1:
-            inv = list(range(y.ndim))
-            inv[time_axis], inv[-1] = inv[-1], inv[time_axis]
-            y = y.permute(*inv)
-
-        return y
-
     def measure_snr_db(
         self,
         x_clean: torch.Tensor,
@@ -148,67 +79,6 @@ class Inference(object):
         noise = noise * torch.sqrt(p_noise / (p_now + eps))
         y = x + noise
 
-        if time_axis != -1:
-            inv = list(range(y.ndim))
-            inv[time_axis], inv[-1] = inv[-1], inv[time_axis]
-            y = y.permute(*inv)
-        return y
-
-    def add_awgn_partially_correlated(
-        self,
-        x: torch.Tensor,
-        snr_db: float,
-        rho: float = 0.8,
-        *,
-        time_axis: int = -1,
-        eps: float = 1e-12,
-        seed: Optional[int] = 42,
-    ) -> torch.Tensor:
-        """Add white Gaussian noise with per-channel SNR and target inter-channel correlation rho."""
-        assert 0.0 <= rho <= 1.0 and x.is_floating_point()
-        # Put time last
-        if time_axis != -1:
-            perm = list(range(x.ndim))
-            perm[time_axis], perm[-1] = perm[-1], perm[time_axis]
-            x = x.permute(*perm)
-        # Shapes: (B,T) or (B,C,T)
-        dims = (-1,)
-        p_sig = x.pow(2).mean(dim=dims, keepdim=True)  # (B,1,1) or (B,C,1)
-        snr_lin = 10.0 ** (snr_db / 10.0)
-        p_noise = torch.clamp(p_sig / snr_lin, min=eps)  # desired noise power per ch
-
-        BCT = x.shape
-        device, dtype = x.device, x.dtype
-        gen = None
-        if seed is not None:
-            try:
-                gen = torch.Generator(device=device)
-            except TypeError:
-                gen = torch.Generator()
-            gen.manual_seed(seed)
-
-        if x.ndim == 3:
-            B, C, T = BCT
-            # shared component: one waveform per batch, broadcast to all channels
-            z_shared = torch.randn(B, 1, T, device=device, dtype=dtype, generator=gen)
-            # independent component: one per channel
-            z_indep = torch.randn(B, C, T, device=device, dtype=dtype, generator=gen)
-            # target per-channel std for noise
-            sigma = torch.sqrt(p_noise)  # (B,C,1)
-            # mix shared + independent; this construction gives Corr_ij = rho
-            noise = (rho**0.5) * sigma * z_shared + (1 - rho) ** 0.5 * sigma * z_indep
-        else:
-            # (B,T): correlation concept doesn’t apply; just AWGN
-            z = (
-                torch.randn_like(x)
-                if gen is None
-                else torch.randn(x.shape, device=device, dtype=dtype, generator=gen)
-            )
-            sigma = torch.sqrt(p_noise)  # (B,1)
-            noise = sigma * z
-
-        y = x + noise
-        # Restore original axis order
         if time_axis != -1:
             inv = list(range(y.ndim))
             inv[time_axis], inv[-1] = inv[-1], inv[time_axis]
@@ -266,23 +136,15 @@ class Inference(object):
                 labels = labels.to(self.device)
                 labels = labels.view(-1, 1)
 
-                # # some changes:
-                # if inputs.shape[2] == 14784:
-                #     pass
-                # elif inputs.shape[2] == 16192:
-                #     inputs = nn.Conv1d(16192, 14784, 1)(inputs)
-                add_noise = True
+                # Use this add_noise = True for quick test with noise for SNR measurement at inference,
+                # will add as Params later
+                add_noise = False
                 if add_noise:
-                    SNR_lvl = 10
+                    SNR_lvl = 10 # SNR level in dB
                     logging.info(f"SNR is: {SNR_lvl}")
-                    p_value = 1
-                    # noisy = self.add_awgn(inputs, SNR_lvl, time_axis=-1, clamp_silent=0.0)
                     noisy = self.add_awgn_correlated(inputs, SNR_lvl, time_axis=-1)
-                    # noisy = self.add_awgn_partially_correlated(inputs, snr_db=SNR_lvl, rho=p_value, time_axis=-1, seed=42)
-
                     snr_meas = self.measure_snr_db(inputs, noisy, time_axis=-1)
                     logging.info(f"SNR_MEASUREMENT: {snr_meas}")
-                    # _, _, output = self.model(inputs)
                     output = self.model(noisy)
                 else:
                     output = self.model(inputs)
@@ -314,99 +176,32 @@ class Inference(object):
             logging.info(all_predictions[:10])
             logging.info(all_targets[:10])
 
-        # def calculate_pcl5_mae(predictions, targets):
-        #     S = len(targets)
-
-        #     # Ensure the predictions and targets lists have the same length
-        #     if S != len(predictions):
-        #         raise ValueError("Predictions and targets must have the same length")
-
-        #     # Initialize counters for PCL-5% and MAE
-        #     pcl5_count = 0
-        #     total_absolute_error = 0
-
-        #     for yi, fxi in zip(targets, predictions):
-        #         absolute_error = abs(yi - fxi)
-        #         percentage_error = (absolute_error / yi) * 100
-
-        #         # Check if the percentage error is within 5%
-        #         if percentage_error <= 5:
-        #             pcl5_count += 1
-
-        #         # Accumulate the absolute error for MAE calculation
-        #         total_absolute_error += absolute_error
-
-        #     # Calculate PCL-5%
-        #     pcl5 = (pcl5_count / S) * 100
-
-        #     # Calculate MAE
-        #     mae = total_absolute_error / S
-
-        #     return pcl5, mae
-
-        # pcl5, mae = calculate_pcl5_mae(all_predictions, all_targets)
-
         def calculate_metrics(predictions, targets):
             S = len(targets)
-
             # Ensure the predictions and targets lists have the same length
             if S != len(predictions):
                 raise ValueError("Predictions and targets must have the same length")
 
-            # Initialize counters for PCL-5%, PCL-10%, MAE, and MSE
-            pcl5_count = 0
-            pcl10_count = 0
             total_absolute_error = 0
             total_squared_error = 0
 
             for yi, fxi in zip(targets, predictions):
                 absolute_error = abs(yi - fxi)
                 squared_error = (yi - fxi) ** 2
-                percentage_error = (absolute_error / yi) * 100
-
-                # Check if the percentage error is within 5%
-                if percentage_error <= 5:
-                    pcl5_count += 1
-
-                # Check if the percentage error is within 10%
-                if percentage_error <= 10:
-                    pcl10_count += 1
-
                 # Accumulate the absolute error for MAE calculation
                 total_absolute_error += absolute_error
-
                 # Accumulate the squared error for MSE calculation
                 total_squared_error += squared_error
 
-            # Calculate PCL-5%
-            pcl5 = (pcl5_count / S) * 100
-
-            # Calculate PCL-10%
-            pcl10 = (pcl10_count / S) * 100
-
-            # Calculate MAE
             mae = total_absolute_error / S
-
-            # Calculate MSE
             mse = total_squared_error / S
 
-            return pcl5, pcl10, mae, mse
+            return mae, mse
 
-        pcl5, pcl10, mae, mse = calculate_metrics(all_predictions, all_targets)
-        logging.info(f"PCL-5%: {pcl5}%")
-        logging.info(f"PCL-10%: {pcl10}%")
+        mae, mse = calculate_metrics(all_predictions, all_targets)
         logging.info(f"MAE: {mae}")
         logging.info(f"MSE: {mse}")
 
-        # indices = np.arange(1, len(all_targets) + 1)
-
-        # fig, ax = plt.subplots(figsize=(12, 6))
-
-        # Plot the true labels in blue
-        # ax.scatter(indices, all_targets, c="b", label="Derived Ground Truth", s=8)
-        # ax.scatter(
-        #     indices, all_predictions, c="r", marker="x", label="Predicted Labels", s=8
-        # )
         # IF S59 and test all 6 folds, rearrange for a nicer plot (stack 6 folds instead of plot 1 by 1):
         if "s59" in Params.dataset_path and Params.cross_validation_mode == True:
             # folds = list of six 1-D arrays, all length L
