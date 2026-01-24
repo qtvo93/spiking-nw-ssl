@@ -480,16 +480,6 @@ class ACA_DTNET(pl.LightningModule):
         self.max_pooling2 = nn.MaxPool1d(4)
         self.max_pooling3 = nn.MaxPool1d(4)
         self.max_pooling4 = nn.MaxPool1d(2)
-        self.avg_pooling = nn.AvgPool1d(2)
-
-        self.stitch = nn.ParameterList(
-            [
-                nn.Parameter(torch.FloatTensor(128, 2, 2).uniform_(0.1, 0.9)),
-                nn.Parameter(torch.FloatTensor(256, 2, 2).uniform_(0.1, 0.9)),
-                nn.Parameter(torch.FloatTensor(512, 2, 2).uniform_(0.1, 0.9)),
-                nn.Parameter(torch.FloatTensor(512, 2, 2).uniform_(0.1, 0.9)),
-            ]
-        )
 
         self.dropout = nn.Dropout1d(p=0.1)
 

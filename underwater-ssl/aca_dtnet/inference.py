@@ -17,6 +17,7 @@ from utils.parameters import Params
 from utils.data_loader import CustomDataset
 from utils.set_seed import SetSeed
 from utils.inspector import ModelInspector
+from aca_dtnet.kalman import KalmanCV_CVA
 
 
 class Inference(object):
@@ -245,6 +246,154 @@ class Inference(object):
         
         inspector = ModelInspector(self.model)
         # inspector.register_hooks()
+
+        dt = 1
+        sigma_a = 0.2
+        r_std   = 80.0          # ≈ dev RMSE (meters); or tune
+        kf = KalmanCV_CVA(dt=dt, sigma_a=sigma_a, r_std=r_std,
+        device=self.device, dtype=torch.float32)
+
+        import cvxpy as cp
+        import scipy.sparse as sp
+
+        def _solve_cvx(prob, verbose=False):
+            # Try OSQP first
+            try:
+                prob.solve(
+                    solver=cp.OSQP,
+                    polish=True,
+                    eps_abs=1e-7,
+                    eps_rel=1e-7,
+                    max_iter=200000,
+                    adaptive_rho=True,
+                    verbose=verbose
+                )
+                if prob.status in ("optimal", "optimal_inaccurate"):
+                    return
+            except Exception:
+                pass
+            # ECOS fallback (interior-point)
+            try:
+                prob.solve(
+                    solver=cp.ECOS,
+                    abstol=1e-9, reltol=1e-9, feastol=1e-9,
+                    max_iters=20000, verbose=verbose
+                )
+                if prob.status in ("optimal", "optimal_inaccurate"):
+                    return
+            except Exception:
+                pass
+            # SCS fallback (first-order; robust on tough cases)
+            prob.solve(
+                solver=cp.SCS,
+                eps=1e-5, max_iters=100000,
+                acceleration_lookback=20,
+                scale=1.0, verbose=verbose
+            )
+
+        def smooth_range_physics_km_stable(
+            z_km,                 # shape (T,) or (T,1)
+            v_max_km_s=0.0025,    # 2.5 m/s
+            a_max_km_s2=0.0005,   # 0.5 m/s^2
+            r_min_km=0.0,
+            r_max_km=20.0,
+            doppler_sign=None,    # optional array length T-1: +1 recede, -1 approach, 0 free
+            trust=1.0,
+            iter_robust=2,
+            dt_s=1.0,
+            lambda_v=1e3,         # soft penalty for speed slack
+            lambda_a=1e3,         # soft penalty for accel slack
+            ridge=1e-9,           # tiny L2 on r for conditioning
+            verbose=False
+        ):
+            # ---- flatten & cast ----
+            z_km = np.asarray(z_km, dtype=np.float64).reshape(-1)
+            T = z_km.shape[0]
+            if T < 3:
+                return z_km.copy()
+
+            # ---- scale to meters for numerics ----
+            KM = 1000.0
+            z_m = z_km * KM
+            r_min_m, r_max_m = r_min_km*KM, r_max_km*KM
+            v_bound_m = v_max_km_s * dt_s * KM
+            a_bound_m = a_max_km_s2 * (dt_s**2) * KM
+
+            # ---- sparse banded difference operators ----
+            # D1: (T-1) x T first difference
+            I_T = sp.eye(T, format="csc")
+            D1 = I_T - sp.eye(T, k=1, format="csc")
+            D1 = D1[:T-1, :]
+            # D2: (T-2) x T second difference
+            I_T1 = sp.eye(T-1, format="csc")
+            D1m = I_T1 - sp.eye(T-1, k=1, format="csc")
+            D1m = D1m[:T-2, :]
+            D2 = D1m @ D1
+
+            # ---- robust weights init ----
+            w = np.ones(T, dtype=np.float64)
+
+            def hampel_weights(res, k=3.0):
+                med = np.median(res)
+                mad = np.median(np.abs(res - med)) + 1e-12
+                z = np.abs(res - med) / (1.4826 * mad)
+                w = np.ones_like(z)
+                m = z > k
+                w[m] = k / z[m]
+                return w
+
+            # ---- optional monotonicity mask from doppler_sign (length T-1) ----
+            use_mono = (doppler_sign is not None) and (len(doppler_sign) == T-1)
+            doppler_sign = np.asarray(doppler_sign, dtype=np.int8) if use_mono else None
+
+            r_m = z_m.copy()
+
+            for _ in range(iter_robust):
+                r_var = cp.Variable(T)
+
+                # Weighted data fidelity + tiny ridge
+                # (Use diagonal via elementwise multiply to keep it sparse)
+                data_term = cp.sum_squares(cp.multiply(w * trust, r_var - z_m)) + ridge * cp.sum_squares(r_var)
+
+                # Smoothness penalty (accel L2)
+                smooth_term = cp.sum_squares(D2 @ r_var)
+
+                # Soft constraint slacks
+                s_v = cp.Variable(T-1, nonneg=True)
+                s_a = cp.Variable(T-2, nonneg=True)
+
+                constraints = [
+                    r_var >= r_min_m,
+                    r_var <= r_max_m,
+                    # speed (soft): |D1 r| <= v_bound + s_v
+                    D1 @ r_var <=  v_bound_m + s_v,
+                    D1 @ r_var >= -v_bound_m - s_v,
+                    # accel (soft): |D2 r| <= a_bound + s_a
+                    D2 @ r_var <=  a_bound_m + s_a,
+                    D2 @ r_var >= -a_bound_m - s_a,
+                ]
+
+                # Optional monotonicity: enforce sign on D1 r
+                if use_mono:
+                    # sign: +1 => Δr >= 0 ; -1 => Δr <= 0 ; 0 => no constraint
+                    idx_pos = np.where(doppler_sign > 0)[0]
+                    idx_neg = np.where(doppler_sign < 0)[0]
+                    if idx_pos.size:
+                        constraints += [(D1[idx_pos, :] @ r_var) >= 0]
+                    if idx_neg.size:
+                        constraints += [(D1[idx_neg, :] @ r_var) <= 0]
+
+                obj = cp.Minimize(data_term + smooth_term + lambda_v*cp.sum_squares(s_v) + lambda_a*cp.sum_squares(s_a))
+                prob = cp.Problem(obj, constraints)
+                _solve_cvx(prob, verbose=verbose)
+
+                r_m = np.asarray(r_var.value, dtype=np.float64)
+                # IRLS reweighting
+                w = hampel_weights(z_m - r_m, k=3.0)
+
+            # back to km
+            return r_m / KM
+
         with torch.no_grad():
             for batch, data in enumerate(self.test_loader):
 
@@ -260,7 +409,7 @@ class Inference(object):
                 #     inputs = nn.Conv1d(16192, 14784, 1)(inputs)
                 add_noise = True
                 if add_noise:
-                    SNR_lvl = 10
+                    SNR_lvl = -15
                     logging.info(f"SNR is: {SNR_lvl}")
                     p_value = 1
                     # noisy = self.add_awgn(inputs, SNR_lvl, time_axis=-1, clamp_silent=0.0)
@@ -268,16 +417,94 @@ class Inference(object):
                     # noisy = self.add_awgn_partially_correlated(inputs, snr_db=SNR_lvl, rho=p_value, time_axis=-1, seed=42)
 
                     snr_meas = self.measure_snr_db(inputs, noisy, time_axis=-1)
-                    logging.info(f"SNR_MEASUREMENT: {snr_meas}")
+                    # logging.info(f"SNR_MEASUREMENT: {snr_meas}")
                     # _, _, output = self.model(inputs)
                     output = self.model(noisy)
                 else:
                     output = self.model(inputs)
 
-                predicted_labels = output.cpu().numpy()
-                batch_targets = labels.cpu().numpy()
-                all_predictions.extend(predicted_labels)
-                all_targets.extend(batch_targets)
+                # reduce_dims = tuple(range(1, snr_meas.ndim))
+                # snr_meas_db = snr_meas.mean(dim=reduce_dims)            # (B,)
+
+                # mu_m = output * 1000.0
+                # snr_ref  = 12        
+                # base_std = 1            # meters;
+                # scale = torch.pow(10.0, -(snr_meas_db - snr_ref) / 20.0)  # (B,)
+                # R_t_std_m = torch.clamp(base_std * scale, 0.5, 50.0)              # (B,) std in meters
+                # kf = KalmanCV_CVA(dt=1.0, sigma_a=0.2, r_std=base_std,
+                # device=mu_m.device, dtype=mu_m.dtype)
+                # r_filt_m = kf.run(mu_m, R_t=None, smooth=False)   # (B,)
+                # r_filt_km = r_filt_m / 1000.0
+                # r_filt_batch = 
+                
+                # r_filt_batch = kf.run(output, R_t=None, smooth=False)
+                # all_predictions.extend(r_filt_batch.detach().cpu().numpy())   # <— KF 
+                
+                # ---- smoother usage ----
+                z_pred_km = np.asarray(output.detach().cpu().numpy())
+                pilot_freqs_hz = np.array([
+                    49, 52, 55, 58, 61, 64, 67, 70, 73, 76, 79, 82, 85,
+                    88, 91, 94, 97, 100, 103, 106, 109, 112, 115, 118, 121, 124,
+                    127, 130, 133, 136, 139, 142, 145, 148, 151, 154, 157, 160, 163,
+                    166, 169, 172, 175, 178, 198, 201, 204, 207, 210, 213, 232, 235,
+                    238, 241, 244, 247, 280, 283, 286, 289, 292, 295, 335, 338, 341,
+                    344, 347, 350, 385, 388, 391, 394, 397, 400
+                ], dtype=float)  
+                doppler_hz = np.asarray(pilot_freqs_hz * (2.5/1500.0))
+
+                def doppler_sign_from_doppler_hz(doppler_hz_t, smooth_win=5, pos_thresh=0.01, neg_thresh=-0.01):
+                    """
+                    doppler_hz_t: length T time series of instantaneous Doppler shift (Hz)
+                    Returns doppler_sign of length T-1 in {+1, -1, 0}.
+                    """
+                    x = np.asarray(doppler_hz_t, float).reshape(-1)
+                    # Smooth tiny jitters
+                    if smooth_win > 1:
+                        kern = np.ones(smooth_win) / smooth_win
+                        x = np.convolve(x, kern, mode='same')
+                    # Sign by thresholds
+                    s = np.zeros_like(x, dtype=int)
+                    s[x > pos_thresh] = +1
+                    s[x < neg_thresh] = -1
+                    # Map to T-1 (use value at left endpoint of each interval)
+                    return s[:-1]
+                
+                doppler_sign = doppler_sign_from_doppler_hz(doppler_hz)
+                r_smooth_km = smooth_range_physics_km_stable(
+                    z_pred_km,
+                    v_max_km_s=0.003,   # 2.5 m/s
+                    a_max_km_s2=0.001,  # 0.5 m/s^2
+                    r_min_km=0.903,
+                    r_max_km=8.648,       
+                    doppler_sign=None,
+                    trust=1.0,
+                    iter_robust=2,
+                    dt_s=1.0,
+                    lambda_v=1e2,         # soft penalty for speed slack
+                    lambda_a=1e2,         # soft penalty for accel slack
+                    ridge=1e-9,           # tiny L2 on r for conditioning
+                    verbose=False
+                )
+                # all_predictions.extend(r_filt_km.detach().cpu().numpy())
+                all_predictions.extend(r_smooth_km)
+                # all_predictions.extend(output.detach().cpu().numpy())
+                all_targets.extend(labels.detach().cpu().numpy())
+
+                # predicted_labels = output.cpu().numpy()
+                # batch_targets = labels.cpu().numpy()
+                # all_predictions.extend(predicted_labels)
+                # all_targets.extend(batch_targets)
+
+
+                # # all_predictions, all_targets are in KM in
+                # pred_km = np.asarray(all_predictions).reshape(-1)
+                # true_km = np.asarray(all_targets).reshape(-1)
+
+                # # RMSE in meters
+                # err_m   = (pred_km - true_km) * 1000.0
+                # rmse_m  = float(np.sqrt(np.mean(err_m**2)))
+                # mae_m   = float(np.mean(np.abs(err_m)))
+                # print(f"[DEV] RMSE = {rmse_m:.2f} m, MAE = {mae_m:.2f} m")
         
         # inspector.save_weights()
 
