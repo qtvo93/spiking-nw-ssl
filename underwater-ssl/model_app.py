@@ -16,9 +16,9 @@ import time
 import torch.nn as nn
 import torch.optim as optim
 
-from aca_dtnet.inference import Inference
-from aca_dtnet.model import ACA_DTNET
-from aca_dtnet.trainer import Trainer
+from sa_net.inference import Inference
+from sa_net.model import SA_NET
+from sa_net.trainer import Trainer
 from loss.loss import Loss
 from utils.data_loader import CustomDataLoader
 from utils.parameters import Params
@@ -27,7 +27,7 @@ from utils.parameters import Params
 class MainApp(object):
     def __init__(self):
         super().__init__()
-        self.model = ACA_DTNET(Params.mel_channels, Params.gcc_channels)
+        self.model = SA_NET()
         self.loss = Loss()
         self.save_dir = Params.save_dir
         self.best_model_path = Params.best_model_path
@@ -52,7 +52,7 @@ class MainApp(object):
         train_loader, val_loader, test_loader = dataset_loader.load_data()
         return train_loader, val_loader, test_loader
 
-    def init_model(self, parallel: bool = True) -> ACA_DTNET:
+    def init_model(self, parallel: bool = True) -> SA_NET:
         """
         Initialize the model and move it to the device
 
