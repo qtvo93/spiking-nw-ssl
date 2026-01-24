@@ -12,6 +12,7 @@ from sklearn.model_selection import train_test_split
 from utils.parameters import Params
 from utils.set_seed import SetSeed
 
+
 class CustomDataset(Dataset):
     def __init__(self, data):
         self.set_seed = SetSeed(seed=42)
@@ -84,10 +85,15 @@ class CustomDataLoader(object):
                     #     for sublist in training_data_dict[: Params.total_folds]
                     #     for item in sublist
                     # ]
-                    
-                    all_data = training_data_dict[0] + training_data_dict[1] + \
-                            training_data_dict[2] + training_data_dict[3] + \
-                            training_data_dict[4] + training_data_dict[5]
+
+                    all_data = (
+                        training_data_dict[0]
+                        + training_data_dict[1]
+                        + training_data_dict[2]
+                        + training_data_dict[3]
+                        + training_data_dict[4]
+                        + training_data_dict[5]
+                    )
 
                     # # hard code this to load the right - receding data only
                     # all_data = training_data_dict[5]

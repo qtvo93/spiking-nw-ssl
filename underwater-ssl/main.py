@@ -5,6 +5,7 @@ import wandb
 import yaml
 import time
 import os
+
 os.environ["CUBLAS_WORKSPACE_CONFIG"] = ":4096:8"
 
 from options import Options, BaseOptions

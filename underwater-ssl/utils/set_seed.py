@@ -2,14 +2,15 @@ import random
 import numpy as np
 import torch
 
+
 class SetSeed:
-    def __init__(self, seed = 42):
+    def __init__(self, seed=42):
         """
         Set the random seed.
         """
         self.seed = seed
         self.set_seed()
-        
+
     def set_seed(self):
         random.seed(self.seed)
         np.random.seed(self.seed)

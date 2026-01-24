@@ -30,7 +30,6 @@ class Inference(object):
         self.save_dir = Params.save_dir
         self.best_model_path = Params.best_model_path
 
-
     def add_awgn(
         self,
         x: torch.Tensor,
@@ -100,7 +99,6 @@ class Inference(object):
 
         return y
 
-
     def measure_snr_db(
         self,
         x_clean: torch.Tensor,
@@ -119,24 +117,28 @@ class Inference(object):
         dims = (-1,)
         p_sig = x_clean.pow(2).mean(dim=dims, keepdim=True)
         p_noise = (x_noisy - x_clean).pow(2).mean(dim=dims, keepdim=True)
-        snr = 10.0 * torch.log10(torch.clamp(p_sig, min=eps) / torch.clamp(p_noise, min=eps))
+        snr = 10.0 * torch.log10(
+            torch.clamp(p_sig, min=eps) / torch.clamp(p_noise, min=eps)
+        )
         return snr
 
     def add_awgn_correlated(self, x, snr_db, time_axis=-1, eps=1e-12, seed=42):
         # shape (B,C,T) or (B,T)
         if time_axis != -1:
-            perm = list(range(x.ndim)); perm[time_axis], perm[-1] = perm[-1], perm[time_axis]
+            perm = list(range(x.ndim))
+            perm[time_axis], perm[-1] = perm[-1], perm[time_axis]
             x = x.permute(*perm)
         dims = (-1,)
-        p_sig = x.pow(2).mean(dim=dims, keepdim=True)              # (B, C?, 1)
+        p_sig = x.pow(2).mean(dim=dims, keepdim=True)  # (B, C?, 1)
         snr_lin = 10.0 ** (snr_db / 10.0)
         p_noise = torch.clamp(p_sig / snr_lin, min=eps)
 
         # one noise trace per (B,T), then broadcast to channels → fully correlated across C
         if x.ndim == 3:
             B, C, T = x.shape
-            gen = torch.Generator(device=x.device); 
-            if seed is not None: gen.manual_seed(seed)
+            gen = torch.Generator(device=x.device)
+            if seed is not None:
+                gen.manual_seed(seed)
             base = torch.randn(B, 1, T, device=x.device, dtype=x.dtype, generator=gen)
             noise = base.expand(B, C, T).contiguous()
         else:
@@ -147,26 +149,33 @@ class Inference(object):
         y = x + noise
 
         if time_axis != -1:
-            inv = list(range(y.ndim)); inv[time_axis], inv[-1] = inv[-1], inv[time_axis]
+            inv = list(range(y.ndim))
+            inv[time_axis], inv[-1] = inv[-1], inv[time_axis]
             y = y.permute(*inv)
         return y
-    
+
     def add_awgn_partially_correlated(
         self,
-        x: torch.Tensor, snr_db: float, rho: float = 0.8, *,
-        time_axis: int = -1, eps: float = 1e-12, seed: Optional[int] = 42,
+        x: torch.Tensor,
+        snr_db: float,
+        rho: float = 0.8,
+        *,
+        time_axis: int = -1,
+        eps: float = 1e-12,
+        seed: Optional[int] = 42,
     ) -> torch.Tensor:
         """Add white Gaussian noise with per-channel SNR and target inter-channel correlation rho."""
         assert 0.0 <= rho <= 1.0 and x.is_floating_point()
         # Put time last
         if time_axis != -1:
-            perm = list(range(x.ndim)); perm[time_axis], perm[-1] = perm[-1], perm[time_axis]
+            perm = list(range(x.ndim))
+            perm[time_axis], perm[-1] = perm[-1], perm[time_axis]
             x = x.permute(*perm)
         # Shapes: (B,T) or (B,C,T)
         dims = (-1,)
-        p_sig = x.pow(2).mean(dim=dims, keepdim=True)                            # (B,1,1) or (B,C,1)
+        p_sig = x.pow(2).mean(dim=dims, keepdim=True)  # (B,1,1) or (B,C,1)
         snr_lin = 10.0 ** (snr_db / 10.0)
-        p_noise = torch.clamp(p_sig / snr_lin, min=eps)                          # desired noise power per ch
+        p_noise = torch.clamp(p_sig / snr_lin, min=eps)  # desired noise power per ch
 
         BCT = x.shape
         device, dtype = x.device, x.dtype
@@ -183,24 +192,28 @@ class Inference(object):
             # shared component: one waveform per batch, broadcast to all channels
             z_shared = torch.randn(B, 1, T, device=device, dtype=dtype, generator=gen)
             # independent component: one per channel
-            z_indep  = torch.randn(B, C, T, device=device, dtype=dtype, generator=gen)
+            z_indep = torch.randn(B, C, T, device=device, dtype=dtype, generator=gen)
             # target per-channel std for noise
-            sigma = torch.sqrt(p_noise)                                          # (B,C,1)
+            sigma = torch.sqrt(p_noise)  # (B,C,1)
             # mix shared + independent; this construction gives Corr_ij = rho
-            noise = ( (rho**0.5) * sigma * z_shared + (1 - rho)**0.5 * sigma * z_indep )
+            noise = (rho**0.5) * sigma * z_shared + (1 - rho) ** 0.5 * sigma * z_indep
         else:
             # (B,T): correlation concept doesn’t apply; just AWGN
-            z = torch.randn_like(x) if gen is None else torch.randn(x.shape, device=device, dtype=dtype, generator=gen)
-            sigma = torch.sqrt(p_noise)                                          # (B,1)
+            z = (
+                torch.randn_like(x)
+                if gen is None
+                else torch.randn(x.shape, device=device, dtype=dtype, generator=gen)
+            )
+            sigma = torch.sqrt(p_noise)  # (B,1)
             noise = sigma * z
 
         y = x + noise
         # Restore original axis order
         if time_axis != -1:
-            inv = list(range(y.ndim)); inv[time_axis], inv[-1] = inv[-1], inv[time_axis]
+            inv = list(range(y.ndim))
+            inv[time_axis], inv[-1] = inv[-1], inv[time_axis]
             y = y.permute(*inv)
         return y
-
 
     def sort_test_loader(self, test_loader):
         # Extract data from DataLoader
@@ -242,7 +255,7 @@ class Inference(object):
         #     logging.info("Sort the test dataset...")
         #     # Sort the test_loader
         #     self.test_loader = self.sort_test_loader(self.test_loader)
-        
+
         inspector = ModelInspector(self.model)
         # inspector.register_hooks()
         with torch.no_grad():
@@ -278,7 +291,7 @@ class Inference(object):
                 batch_targets = labels.cpu().numpy()
                 all_predictions.extend(predicted_labels)
                 all_targets.extend(batch_targets)
-        
+
         # inspector.save_weights()
 
         # for i, block in enumerate(self.model.conformer1.layers):

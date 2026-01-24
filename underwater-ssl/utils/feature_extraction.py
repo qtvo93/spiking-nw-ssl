@@ -95,9 +95,22 @@ class FeatureExtraction(object):
         """
         metadata = pd.DataFrame(columns=["filename", "range_km", "fold", "target"])
         sproul_data = self.load_sproul_labels_and_preprocess()
-        
+
         # 7.932 7.042  5.953 5.087 4.251 3.382 2.574 1.800 1.147 0.905 1.396 2.179
-        test_ranges = [7.932, 7.042, 5.953, 5.087, 4.251, 3.382, 2.574, 1.800, 1.147, 0.905, 1.396, 2.179]
+        test_ranges = [
+            7.932,
+            7.042,
+            5.953,
+            5.087,
+            4.251,
+            3.382,
+            2.574,
+            1.800,
+            1.147,
+            0.905,
+            1.396,
+            2.179,
+        ]
         print(num_spectrograms)
         # Iterate through each spectrogram
         for i in range(num_spectrograms):
@@ -119,13 +132,13 @@ class FeatureExtraction(object):
             #         fold = 6
             #     else:
             #         fold = i % 5 + 1
-            
+
             # This is Secenario 3 Doppler testing
             # if i > 3599:
             #     fold = 6
             # else:
             #     fold = i % 5 + 1
-            
+
             target = float(range_km)
 
             new_row = pd.DataFrame(
@@ -226,7 +239,8 @@ class FeatureExtraction(object):
             # Assign folds randomly but evenly
             fold_assignments = (
                 # indices % Params.total_folds + 1
-                indices % 5 + 1
+                indices % 5
+                + 1
             )  # Folds will be 1 to total_folds
             # 7.932 7.042  5.953 5.087 4.251 3.382 2.574 1.800 1.147 0.905 1.396 2.179
             # test_ranges = [7.932, 7.042, 5.953, 5.087, 4.251, 3.382, 2.574, 1.800, 1.147, 0.905, 1.396, 2.179]

@@ -9,9 +9,11 @@ import logging
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
+
 # from snntorch import utils
 
 from utils.set_seed import SetSeed
+
 
 class Trainer(object):
     def __init__(

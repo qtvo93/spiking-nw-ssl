@@ -23,6 +23,7 @@ import matplotlib.pyplot as plt
 n_time_steps, begin_eval = 128, 0
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
+
 class InputDataToSpikingPerceptronLayer(nn.Module):
 
     def __init__(self, device):
@@ -59,7 +60,8 @@ class OutputDataToSpikingPerceptronLayer(nn.Module):
         if type(x) == list:
             x = torch.stack(x)
         return self.reducer(x, 0)
-        
+
+
 class SA_NET(pl.LightningModule):
     def __init__(self):
         super(SA_NET, self).__init__()
@@ -171,7 +173,7 @@ class SA_NET(pl.LightningModule):
         self.fc_combined = nn.Linear(512, 1)
         self.fc_singleton = nn.Linear(11, 1)
         # self.fc_singleton = nn.Linear(3, 1)
-        
+
         # self.spiking_net = SpikingNeuralNetwork()
         # self.extra_convo = nn.Conv1d(512, 128, kernel_size=1)
 
@@ -185,7 +187,7 @@ class SA_NET(pl.LightningModule):
 
         # encoder_layer = nn.TransformerEncoderLayer(d_model=256, nhead=8, dim_feedforward=256, dropout=0.2)
         # self.transformer_encoder = nn.TransformerEncoder(encoder_layer, num_layers=2)
-        
+
         # self.fctransansformer = nn.Linear(256, 64)
         # self.fc_singleton2 = nn.Linear(75, 1)
         # self.fc_testing1 = nn.Linear(11,1)
@@ -246,7 +248,6 @@ class SA_NET(pl.LightningModule):
         # num_steps = 100
         spk_rec = []
 
-
         # x_mel = x
         # print("after_norm", x_mel)
         # x_mel = x[:, :11, :]
@@ -261,14 +262,14 @@ class SA_NET(pl.LightningModule):
         # out_dict["cnn1"] = x_mel.detach().cpu().numpy()
         # print("CNN1", x_mel)
         x_mel = self.resnet00(x)
-        x_mel = self.max_pooling1(x_mel) # try pool after steps below
+        x_mel = self.max_pooling1(x_mel)  # try pool after steps below
         # x_mel = self.dropout(x_mel)
 
         # print("Pooling1", x_mel)
         # x_gcc = self.max_pooling1(x_gcc)
         # Change x_mel shape to put time dimension first
         x_mel = x_mel.permute(2, 0, 1)  # [time_steps, batch_size, channels]
-        num_steps = x_mel.size(0)  
+        num_steps = x_mel.size(0)
         # print(num_steps)
         # num_steps = 374
         # print(num_steps)
@@ -282,7 +283,7 @@ class SA_NET(pl.LightningModule):
         x_mel = torch.stack(spk_rec, dim=0)  # [time_steps, batch_size, channels]
         # print("LIF1", x_mel)
         # out_dict["LIF1"] = x_mel.detach().cpu().numpy()
-        # Return to original dimension order if 
+        # Return to original dimension order if
         # print("after LIF1", x_mel)
         x_mel = x_mel.permute(1, 2, 0)  # [batch_size, channels, time_steps]
         # print("LIF1", x_mel)
@@ -304,20 +305,22 @@ class SA_NET(pl.LightningModule):
                 spk_rec_ls = []
                 lif = getattr(self, f"lif{i+2}")
                 mem = lif.init_leaky()
-                
+
                 # Permute to put time dimension first
                 x_mel_t = x_mel.permute(2, 0, 1)  # [time_steps, batch_size, channels]
-                
+
                 # Get actual time steps from the data
                 actual_steps = min(num_steps, x_mel_t.size(0))
                 # actual_steps = x_mel_t.size(0)
                 # actual_steps = 64
-                
+
                 for t in range(actual_steps):
                     spk, mem = lif(x_mel_t[t], mem)
                     spk_rec_ls.append(spk)
 
-                x_mel = torch.stack(spk_rec_ls, dim=0)  # [time_steps, batch_size, channels]
+                x_mel = torch.stack(
+                    spk_rec_ls, dim=0
+                )  # [time_steps, batch_size, channels]
                 # print(f"lif{i+2}", x_mel)
                 # out_dict[f"lif{i+2}"] = x_mel.detach().cpu().numpy()
                 # Permute back if needed
@@ -327,7 +330,7 @@ class SA_NET(pl.LightningModule):
             # x_mel = self.dropout(x_mel)
 
         # x_mel = self.max_pooling3(x_mel)
-  
+
         x_mel = x_mel.transpose(1, 2).contiguous()
         # # # x_mel = x_mel.view(x_mel.shape[0], x_mel.shape[1], -1).contiguous()
         x_mel = self.conformer1(x_mel)
@@ -340,17 +343,16 @@ class SA_NET(pl.LightningModule):
         # print(x_mel.shape)
         # x_mel = self.extra_convo(x_mel)
 
-
         # x_combined = self.dropout(x_combined)
         # x_combined = self.fc_combined(x_combined)
         # # print(x_combined.shape)
-       # # x_combined = self.spiking_net(x_combined)
+        # # x_combined = self.spiking_net(x_combined)
         # print(x_combined.shape)
         # x_combined = self.avg_pooling(x_combined)
         # x_combined = self.spiking_net(x_combined)
-       # # x_combined = x_combined.view(x_combined.size(0), -1)
+        # # x_combined = x_combined.view(x_combined.size(0), -1)
         # x_combined = self.dropout(x_combined)
-        
+
         # x_combined = self.fc_singleton(x_combined)
         x_combined = self.fc_combined(x_mel)
         # print("x_combined_1", x_combined)
@@ -373,13 +375,14 @@ class SA_NET(pl.LightningModule):
         #     self.file_count += 1
         return x_combined
 
+
 class SpikingNeuralNetwork(pl.LightningModule):
     def __init__(self):
         super(SpikingNeuralNetwork, self).__init__()
 
-    # def __init__(self, device, n_time_steps, begin_eval):
-    #     super(SpikingNeuralNetwork, self).__init__()
-        assert (0 <= begin_eval and begin_eval < n_time_steps)
+        # def __init__(self, device, n_time_steps, begin_eval):
+        #     super(SpikingNeuralNetwork, self).__init__()
+        assert 0 <= begin_eval and begin_eval < n_time_steps
         # self.device = device
         self.n_time_steps = n_time_steps
         self.begin_eval = begin_eval
@@ -387,16 +390,26 @@ class SpikingNeuralNetwork(pl.LightningModule):
         self.input_conversion = InputDataToSpikingPerceptronLayer(device)
 
         self.layer1 = SpikingNeuronLayer(
-            device, n_inputs=5632, n_hidden=100,
-            decay_multiplier=0.9, threshold=1.0, penalty_threshold=1.5
+            device,
+            n_inputs=5632,
+            n_hidden=100,
+            decay_multiplier=0.9,
+            threshold=1.0,
+            penalty_threshold=1.5,
         )
 
         self.layer2 = SpikingNeuronLayer(
-            device, n_inputs=100, n_hidden=25,
-            decay_multiplier=0.9, threshold=1.0, penalty_threshold=1.5
+            device,
+            n_inputs=100,
+            n_hidden=25,
+            decay_multiplier=0.9,
+            threshold=1.0,
+            penalty_threshold=1.5,
         )
 
-        self.output_conversion = OutputDataToSpikingPerceptronLayer(average_output=False)  # Sum on outputs.
+        self.output_conversion = OutputDataToSpikingPerceptronLayer(
+            average_output=False
+        )  # Sum on outputs.
         self.prod = 0
         # self.fc_singleton = nn.Linear(75, 1)
         # self.to(device)
@@ -434,8 +447,11 @@ class SpikingNeuralNetwork(pl.LightningModule):
             all_layer2_outputs.append(layer2_output)
             out.append(layer2_state)
 
-        out = self.output_conversion(out[self.begin_eval:])
-        return out, [[all_layer1_states, all_layer1_outputs], [all_layer2_states, all_layer2_outputs]]
+        out = self.output_conversion(out[self.begin_eval :])
+        return out, [
+            [all_layer1_states, all_layer1_outputs],
+            [all_layer2_states, all_layer2_outputs],
+        ]
 
     def forward(self, x):
         out, _ = self.forward_through_time(x)
@@ -454,28 +470,56 @@ class SpikingNeuralNetwork(pl.LightningModule):
         return out
 
     def visualize_all_neurons(self, x):
-        assert x.shape[0] == 1 and len(x.shape) == 4, (
-            "Pass only 1 example to SpikingNeuralNetwork.visualize(x) with outer dimension shape of 1.")
+        assert (
+            x.shape[0] == 1 and len(x.shape) == 4
+        ), "Pass only 1 example to SpikingNeuralNetwork.visualize(x) with outer dimension shape of 1."
         _, layers_state = self.forward_through_time(x)
 
         for i, (all_layer_states, all_layer_outputs) in enumerate(layers_state):
-            layer_state  =  torch.stack(all_layer_states).data.cpu().numpy().squeeze().transpose()
-            layer_output = torch.stack(all_layer_outputs).data.cpu().numpy().squeeze().transpose()
+            layer_state = (
+                torch.stack(all_layer_states).data.cpu().numpy().squeeze().transpose()
+            )
+            layer_output = (
+                torch.stack(all_layer_outputs).data.cpu().numpy().squeeze().transpose()
+            )
 
-            self.plot_layer(layer_state, title="Inner state values of neurons for layer {}".format(i))
-            self.plot_layer(layer_output, title="Output spikes (activation) values of neurons for layer {}".format(i))
+            self.plot_layer(
+                layer_state,
+                title="Inner state values of neurons for layer {}".format(i),
+            )
+            self.plot_layer(
+                layer_output,
+                title="Output spikes (activation) values of neurons for layer {}".format(
+                    i
+                ),
+            )
 
     def visualize_neuron(self, x, layer_idx, neuron_idx):
-        assert x.shape[0] == 1 and len(x.shape) == 4, (
-            "Pass only 1 example to SpikingNeuralNetwork.visualize(x) with outer dimension shape of 1.")
+        assert (
+            x.shape[0] == 1 and len(x.shape) == 4
+        ), "Pass only 1 example to SpikingNeuralNetwork.visualize(x) with outer dimension shape of 1."
         _, layers_state = self.forward_through_time(x)
 
         all_layer_states, all_layer_outputs = layers_state[layer_idx]
-        layer_state  =  torch.stack(all_layer_states).data.cpu().numpy().squeeze().transpose()
-        layer_output = torch.stack(all_layer_outputs).data.cpu().numpy().squeeze().transpose()
+        layer_state = (
+            torch.stack(all_layer_states).data.cpu().numpy().squeeze().transpose()
+        )
+        layer_output = (
+            torch.stack(all_layer_outputs).data.cpu().numpy().squeeze().transpose()
+        )
 
-        self.plot_neuron(layer_state[neuron_idx], title="Inner state values neuron {} of layer {}".format(neuron_idx, layer_idx))
-        self.plot_neuron(layer_output[neuron_idx], title="Output spikes (activation) values of neuron {} of layer {}".format(neuron_idx, layer_idx))
+        self.plot_neuron(
+            layer_state[neuron_idx],
+            title="Inner state values neuron {} of layer {}".format(
+                neuron_idx, layer_idx
+            ),
+        )
+        self.plot_neuron(
+            layer_output[neuron_idx],
+            title="Output spikes (activation) values of neuron {} of layer {}".format(
+                neuron_idx, layer_idx
+            ),
+        )
 
     def plot_layer(self, layer_values, title):
         """
@@ -484,11 +528,7 @@ class SpikingNeuralNetwork(pl.LightningModule):
         width = max(16, layer_values.shape[0] / 8)
         height = max(4, layer_values.shape[1] / 8)
         plt.figure(figsize=(width, height))
-        plt.imshow(
-            layer_values,
-            interpolation="nearest",
-            cmap=plt.cm.rainbow
-        )
+        plt.imshow(layer_values, interpolation="nearest", cmap=plt.cm.rainbow)
         plt.title(title)
         plt.colorbar()
         plt.xlabel("Time")
@@ -507,7 +547,10 @@ class SpikingNeuralNetwork(pl.LightningModule):
         # plt.show()
         plt.savefig("plot_neuron.png")
 
+
 import math
+
+
 class PositionalEncoding(nn.Module):
     def __init__(self, embed_dim, dropout=0.1, max_len=5000):
         super(PositionalEncoding, self).__init__()
@@ -515,18 +558,21 @@ class PositionalEncoding(nn.Module):
 
         # Create positional encodings
         position = torch.arange(0, max_len).unsqueeze(1).float()
-        div_term = torch.exp(torch.arange(0, embed_dim, 2).float() * (-math.log(10000.0) / embed_dim))
+        div_term = torch.exp(
+            torch.arange(0, embed_dim, 2).float() * (-math.log(10000.0) / embed_dim)
+        )
         pe = torch.zeros(max_len, embed_dim)
         pe[:, 0::2] = torch.sin(position * div_term)
         pe[:, 1::2] = torch.cos(position * div_term)
         pe = pe.unsqueeze(0)  # Shape: [1, max_len, embed_dim]
-        self.register_buffer('pe', pe)
+        self.register_buffer("pe", pe)
 
     def forward(self, x):
         # Add positional encodings to input embeddings
-        x = x + self.pe[:, :x.size(1), :]
+        x = x + self.pe[:, : x.size(1), :]
         return self.dropout(x)
-    
+
+
 # class NonSpikingNeuralNetwork(nn.Module):
 
 #     def __init__(self):
@@ -541,11 +587,10 @@ class PositionalEncoding(nn.Module):
 #         return F.log_softmax(x, dim=-1)
 
 
-
 # class SincConv1D(nn.Module):
 #     def __init__(self, in_channels, out_channels, kernel_size, stride=1, padding=0, dilation=1):
 #         super(SincConv1D, self).__init__()
-        
+
 #         # Initialize the sinc filters in the weights
 #         self.kernel_size = kernel_size
 #         self.stride = stride
@@ -600,7 +645,7 @@ class PositionalEncoding(nn.Module):
 # class SincNetPlus(nn.Module):
 #     def __init__(self, in_channels, out_channels, kernel_size=51, stride=1, padding=0, sample_rate=16000, name='sincnet_plus'):
 #         super(SincNetPlus, self).__init__()
-        
+
 #         self.sincconv = SincConv1D(in_channels, out_channels, kernel_size, stride, padding)
 #         self.gaussian_lowpass = GaussianLowpass(cutoff_freq=0.5, sample_rate=sample_rate)  # Adjust cutoff_freq as needed
 #         self.pcen = PCENLayer()
@@ -634,7 +679,7 @@ class PositionalEncoding(nn.Module):
 #         self.fc2 = nn.Linear(64, 128)
 #         self.lif3 = snn.Leaky(beta=beta, init_hidden=True)
 #         self.fc3 = nn.Linear(128, 256)
-        
+
 #         self.surrogate = surrogate.fast_sigmoid(slope=25)
 #         # No spikes, leaky integration for regression
 #         self.leaky_integrate = snn.Leaky(beta=beta, spike_grad=self.surrogate, init_hidden=True)
@@ -670,7 +715,7 @@ class PositionalEncoding(nn.Module):
 #             spk_rec.append(spk3.detach())           # detach to avoid backward-through-graph error
 
 #         spk_stack = torch.stack(spk_rec, dim=0)    # [timesteps, batch, hidden_dim]
-        
+
 #         # Optional: Use leaky integration (no spikes) for smoothed features
 #         leak_out = self.leaky_integrate(spk_stack)  # [timesteps, batch, hidden_dim]
 
@@ -697,17 +742,17 @@ class PositionalEncoding(nn.Module):
 #     #         cur_input = x[step]
 #     #         cur_input = self.fc1(cur_input)
 #     #         spk = self.lif1(cur_input)
-#     #         spk_rec.append(spk.detach()) 
+#     #         spk_rec.append(spk.detach())
 
 #     #     spk_stack = torch.stack(spk_rec, dim=0)  # [timesteps, batch, hidden_dim]
 #     #     spk_sum = spk_stack.sum(dim=0)           # [batch, hidden_dim]
-    
+
 #     #     # Leaky integration (no spikes) for regression
-#     #     leak_out = self.leaky_integrate(spk_sum)  
+#     #     leak_out = self.leaky_integrate(spk_sum)
 #     #     output = self.fc2(leak_out)
 
 #     #     return output  # [batch, 1]
-    
+
 #         #     self.mel_input_channels = mel_input_channels
 #         #     self.gcc_input_channels = gcc_input_channels
 #         #     # self.device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -833,7 +878,7 @@ class PositionalEncoding(nn.Module):
 #     #         batch_first=True,
 #     #         bidirectional=False,
 #     #     )
-    
+
 #     #     # self.leaf = Leaf(n_filters=21, sample_rate=1500, learnable=True)
 #     #     self.sincconv = SincNetPlus(
 #     #         out_channels=21, kernel_size=5, sample_rate=1500, in_channels=21
@@ -852,7 +897,7 @@ class PositionalEncoding(nn.Module):
 #     #     scaled_x = torch.tensor(x_cpu, dtype=x.dtype).to(x.device)
 
 #     #     x = scaled_x.to(x.device).transpose(1, 2).contiguous()
-        
+
 #     #     x = self.sincconv(x)  # (B, C, T)
 #     #     # # Optional: Poisson encoding
 #     #     # x = SF.poisson(x)
@@ -1168,8 +1213,8 @@ class PositionalEncoding(nn.Module):
 #     #     x_combined = self.dropout(x_combined)
 #     #     x_combined = self.fc_singleton(x_combined)
 
-#     #     # x1: [32, 512, 3]  
-#     #     # x2: [32, 512, 1500] 
+#     #     # x1: [32, 512, 3]
+#     #     # x2: [32, 512, 1500]
 #     #     # q = x_gcc.permute(0, 2, 1)  # [32, 3, 512]
 #     #     # k = x_mel.permute(0, 2, 1)  # [32, 1500, 512]
 #     #     # v = k                   # [32, 1500, 512]
@@ -1182,7 +1227,6 @@ class PositionalEncoding(nn.Module):
 
 #     #     # return x1, x2, x_combined
 #     #     return x_combined
-       
 
 
 class ResBlock1D(nn.Module):
