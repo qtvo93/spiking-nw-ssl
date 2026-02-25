@@ -7,23 +7,23 @@
 # @@@
 
 show_help() {
-    echo "Usage: ./run.sh {preprocess_features|train_model|test_model|activate_venv|help}"
+    echo "Usage: ./run_imaple.sh {preprocess_features|train_model|test_model|activate_venv|help}"
     echo ""
     echo "SA-Net: Underwater Sound Source Localization"
     echo ""
     echo "Options:"
     echo ""
     echo "  preprocess_features  - Start the feature extraction"
-    echo "                      Command: ./run.sh preprocess_features"
+    echo "                      Command: ./run_imaple.sh preprocess_features"
     echo ""
     echo "  train_model          - Train mode (test will automatically run with the option \`run_inference_mode=True\` in \`parameters.yaml\`)"
-    echo "                      Command: ./run.sh train_model"
+    echo "                      Command: ./run_imaple.sh train_model"
     echo ""
     echo "  test_model           - Test mode"
-    echo "                      Command: ./run.sh test_model"
+    echo "                      Command: ./run_imaple.sh test_model"
     echo ""
     echo "  help                 - Show this help message"
-    echo "                      Command: ./run.sh help"
+    echo "                      Command: ./run_imaple.sh help"
     echo ""
 }
 
