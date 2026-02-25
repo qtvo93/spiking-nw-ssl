@@ -78,7 +78,8 @@ source swell-env/bin/activate
 ./run_imaple.sh test_model
 ```
 
-Or simply run with `uv`
+### Run with UV
+Simply run any scripts with `uv`
 ```bash
 uv sync
 uv run python3 scripts/
