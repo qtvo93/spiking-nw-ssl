@@ -1,11 +1,33 @@
 # Spiking-NN-SSL
 
 ## This codebase was developed as part of the experiments for the following papers
-
-Author: Quoc Thinh Vo - qv23 [at] drexel [dot] edu
+Codebase Author: Quoc Thinh Vo - qv23 [at] drexel [dot] edu
 
 If you find this code useful and use it, in whole or in part, please consider citing the following papers:
-@@@
+
+##### Spiking Attention Network: A Hybrid Neuromorphic Approach to Underwater Acoustic Localization and Zero-shot Adaptation
+```
+@inproceedings{vo2026sa-net,
+  title={Spiking Attention Network: A Hybrid Neuromorphic Approach to Underwater Acoustic Localization and Zero-shot Adaptation},
+  author={Vo, Quoc Thinh and Han, David K},
+  booktitle={2026 51th IEEE International Conference on Acoustics, Speech, and Signal Processing (ICASSP)},
+  pages={1--5},
+  year={2026},
+  organization={IEEE}
+}
+```
+
+##### Adaptive Control Attention Network for Underwater Acoustic Localization and Domain Adaptation
+```
+@inproceedings{vo2025aca-net,
+  title={Adaptive Control Attention Network for Underwater Acoustic Localization and Domain Adaptation},
+  author={Vo, Quoc Thinh and Woods, Joe and Chowdhury, Priontu and Han, David K},
+  booktitle={2025 33rd European Signal Processing Conference (EUSIPCO)},
+  pages={1--5},
+  year={2025},
+  organization={IEEE}
+}
+```
 
 ## How to Run
 
