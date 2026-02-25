@@ -50,14 +50,14 @@ if __name__ == "__main__":
 
     if Params.simulated_data_mode:
         logging.info("Using simulated data...")
-        data_array, labels = feature_extraction.load_simulated_data_and_labels()
-        if Params.simulated_num_spectrograms:
-            num_spectrograms = Params.simulated_num_spectrograms
+        data_array, labels = feature_extraction.load_bell_simulated_data_and_labels()
+        if Params.simulated_num_samples:
+            num_spectrograms = Params.simulated_num_samples
         else:
             num_spectrograms = int(
                 len(data_array) / (Params.sampling_rate * Params.sample_duration)
             )
-        metadata = feature_extraction.generate_metadata_for_simulated_data(
+        metadata = feature_extraction.generate_bell_metadata_for_simulated_data(
             num_spectrograms=num_spectrograms,
             labels=labels,
         )
