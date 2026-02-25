@@ -296,7 +296,7 @@ class FeatureExtraction(object):
         return metadata
 
     def load_bell_simulated_data_and_labels(
-        self, pkl_path: str = "/mnt/active_storage/qv23/DCASE2024/bellhop/at/waveform_dataset.pkl"
+        self, pkl_path: str = "/mnt/active_storage/waveform_dataset.pkl"
     ) -> tuple[np.array, np.array]:
         """
         Load the waveform dataset from pickle file (new format)
@@ -325,7 +325,7 @@ class FeatureExtraction(object):
         return data_array, labels
 
     def generate_bell_metadata_for_simulated_data(
-        self, pkl_path: str = "/mnt/active_storage/qv23/DCASE2024/bellhop/at/waveform_dataset.pkl"
+        self, pkl_path: str = "/mnt/active_storage/waveform_dataset.pkl"
     ) -> pd.DataFrame:
         """
         Generate metadata DataFrame for the waveform dataset (new format)

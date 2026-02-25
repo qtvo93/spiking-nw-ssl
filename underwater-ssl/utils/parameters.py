@@ -9,7 +9,7 @@ import yaml
 
 
 class Params(object):
-    wandb_training_project = "aca-dtnet"
+    wandb_training_project = "sa-net"
     wandb_traning_name = "swellex-run-no-1"
     run_with_wandb = False
     batch_size = 32

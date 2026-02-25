@@ -223,12 +223,11 @@ class Inference(object):
         if input_data is None:
             raise ValueError("Must provide either input_data or pkl_path")
 
-        # if Params.finetune_mode and Params.num_epochs == 0:
-        #     logging.info("Using pretrained model for zero-shot inference...")
-        #     best_model_path = Params.pretrained_model_path
-        # else:
-        #     best_model_path = os.path.join(self.save_dir, self.best_model_path)
-        best_model_path = "/mnt/active_storage/qv23/DCASE2024/swell24/tsnet/model_checkpoints/best_model-scratch-s5-vla-new11.pth"
+        if Params.finetune_mode and Params.num_epochs == 0:
+            logging.info("Using pretrained model for zero-shot inference...")
+            best_model_path = Params.pretrained_model_path
+        else:
+            best_model_path = os.path.join(self.save_dir, self.best_model_path)
         # Load model weights
         logging.info(f"Loading model from: {best_model_path}")
         self.model.load_state_dict(
