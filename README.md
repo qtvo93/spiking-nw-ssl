@@ -91,17 +91,17 @@ Before running scripts, check `parameters.yaml` for paths, data settings, and hy
 
 #### Start feature extraction
 ```bash
-python3 underwater-ssl/process_features.py --params-file=parameters.yaml
+python3 underwater-ssl/main.py --params-file=parameters.yaml feature_extractor
 ```
 
 #### Train the model
 Test will automatically run when `run_inference_mode=True` in `parameters.yaml`.
 ```bash
-python3 underwater-ssl/main.py --params-file=parameters.yaml
+python3 underwater-ssl/main.py --params-file=parameters.yaml model_trainer
 ```
 
 #### Test a pretrained model
 Set `pretrained_model_path` in `parameters.yaml`, then run:
 ```bash
-python3 underwater-ssl/main.py --params-file=parameters.yaml --run-test-only
+python3 underwater-ssl/main.py --params-file=parameters.yaml --run-test-only model_trainer
 ```
