@@ -11,7 +11,7 @@ import os
 import logging
 import torch.nn as nn
 from torch.utils.data import DataLoader
-from typing import Optional, Sequence
+from typing import Optional, Sequence, Union
 
 from utils.parameters import Params
 from utils.data_loader import CustomDataset
@@ -20,7 +20,7 @@ from utils.inspector import ModelInspector
 
 
 class Inference(object):
-    def __init__(self, model, test_loader):
+    def __init__(self, model, test_loader=None):
         super().__init__()
         self.set_seed = SetSeed(42)
         self.set_seed.set_seed()
@@ -104,6 +104,172 @@ class Inference(object):
 
         return sorted_test_loader
 
+    def inference_single_file(
+        self,
+        input_data: Optional[Union[np.ndarray, torch.Tensor]] = None,
+        pkl_path: Optional[str] = None,
+        model_path: Optional[str] = None,
+        add_noise: bool = False,
+        snr_db: float = 10.0,
+    ) -> np.ndarray:
+        """
+        Perform inference on a single input file/waveform without needing a DataLoader.
+
+        Args:
+            input_data: Input waveform as numpy array or torch tensor.
+                        Shape should be (C, T) for multi-channel or (T,) for single channel,
+                        where C = channels and T = time samples (e.g., 1 second of audio).
+            pkl_path: Path to a .pkl file containing the waveform data.
+                      The pkl file should contain either:
+                      - A numpy array directly, or
+                      - A dict with 'waveform' key, or
+                      - A list of dicts with 'waveform' key (uses first entry)
+            model_path: Optional path to the model weights. If None, uses default best_model_path.
+            add_noise: Whether to add AWGN noise for testing robustness.
+            snr_db: SNR level in dB if add_noise is True.
+
+        Returns:
+            prediction: The model's prediction as a numpy array.
+
+        Example usage:
+            >>> from sa_net.inference import Inference
+            >>> from sa_net.model import YourModel  # Import your model class
+            >>>
+            >>> # Initialize model and inference
+            >>> model = YourModel()
+            >>> inferencer = Inference(model=model, test_loader=None)
+            >>>
+            >>> # Option 1: Load from .pkl file directly
+            >>> prediction = inferencer.inference_single_file(pkl_path="your_signal.pkl")
+            >>> print(f"Predicted value: {prediction}")
+            >>>
+            >>> # Option 2: Pass numpy array directly
+            >>> import pickle
+            >>> with open("your_signal.pkl", "rb") as f:
+            >>>     waveform = pickle.load(f)
+            >>> prediction = inferencer.inference_single_file(input_data=waveform)
+            >>>
+            >>> # With noise for robustness testing
+            >>> prediction_noisy = inferencer.inference_single_file(pkl_path="your_signal.pkl", add_noise=True, snr_db=5.0)
+        """
+        import pickle
+
+        # Load from pkl file if provided
+        if pkl_path is not None:
+            logging.info(f"Loading signal from: {pkl_path}")
+            with open(pkl_path, "rb") as f:
+                loaded_data = pickle.load(f)
+            print(
+                loaded_data.keys()
+                if isinstance(loaded_data, dict)
+                else type(loaded_data)
+            )
+            # Handle different pkl formats
+            if isinstance(loaded_data, np.ndarray):
+                input_data = loaded_data
+            elif isinstance(loaded_data, torch.Tensor):
+                input_data = loaded_data
+            elif isinstance(loaded_data, dict):
+                # Try common keys for waveform data
+                possible_keys = [
+                    "waveform",
+                    "y_real",
+                    "data",
+                    "signal",
+                    "audio",
+                    "x",
+                    "input",
+                    "samples",
+                ]
+                found_key = None
+                for key in possible_keys:
+                    if key in loaded_data:
+                        found_key = key
+                        break
+
+                if found_key is not None:
+                    # input_data = loaded_data[found_key]
+                    input_data = np.stack(
+                        [s["y_real"] for s in loaded_data["samples"]], axis=0
+                    )
+
+                    logging.info(f"Loaded data from key: '{found_key}'")
+                else:
+                    # Show available keys to help user
+                    available_keys = list(loaded_data.keys())
+                    logging.info(f"Available keys in pkl: {available_keys}")
+                    # Try first key that contains array-like data
+                    for key, value in loaded_data.items():
+                        if isinstance(value, (np.ndarray, torch.Tensor)):
+                            input_data = value
+                            logging.info(f"Using data from key: '{key}'")
+                            break
+                    if input_data is None:
+                        raise ValueError(
+                            f"Could not find waveform data in dict. Available keys: {available_keys}"
+                        )
+            elif isinstance(loaded_data, list) and len(loaded_data) > 0:
+                # Assume list of dicts like your dataset format
+                if isinstance(loaded_data[0], dict) and "waveform" in loaded_data[0]:
+                    input_data = loaded_data[0]["waveform"]
+                    logging.info(
+                        f"Loaded first sample from list of {len(loaded_data)} samples"
+                    )
+                else:
+                    input_data = loaded_data[0]
+            else:
+                input_data = loaded_data
+
+        if input_data is None:
+            raise ValueError("Must provide either input_data or pkl_path")
+
+        # if Params.finetune_mode and Params.num_epochs == 0:
+        #     logging.info("Using pretrained model for zero-shot inference...")
+        #     best_model_path = Params.pretrained_model_path
+        # else:
+        #     best_model_path = os.path.join(self.save_dir, self.best_model_path)
+        best_model_path = "/mnt/active_storage/qv23/DCASE2024/swell24/tsnet/model_checkpoints/best_model-scratch-s5-vla-new11.pth"
+        # Load model weights
+        logging.info(f"Loading model from: {best_model_path}")
+        self.model.load_state_dict(
+            torch.load(best_model_path, map_location=self.device)
+        )
+        self.model = self.model.to(self.device)
+        self.model.eval()
+
+        # Convert input to tensor if numpy array
+        if isinstance(input_data, np.ndarray):
+            input_tensor = torch.from_numpy(input_data).float()
+        else:
+            input_tensor = input_data.float()
+
+        # Add batch dimension if needed: (C, T) -> (1, C, T) or (T,) -> (1, T)
+        if input_tensor.ndim == 1:
+            input_tensor = input_tensor.unsqueeze(0)  # (T,) -> (1, T)
+        if input_tensor.ndim == 2:
+            input_tensor = input_tensor.unsqueeze(0)  # (C, T) -> (1, C, T)
+
+        input_tensor = input_tensor.to(self.device)
+
+        logging.info(f"Input shape: {input_tensor.shape}")
+
+        with torch.no_grad():
+            if add_noise:
+                logging.info(f"Adding AWGN noise with SNR: {snr_db} dB")
+                noisy_input = self.add_awgn_correlated(
+                    input_tensor, snr_db, time_axis=-1
+                )
+                snr_meas = self.measure_snr_db(input_tensor, noisy_input, time_axis=-1)
+                logging.info(f"Measured SNR: {snr_meas.item():.2f} dB")
+                output = self.model(noisy_input)
+            else:
+                output = self.model(input_tensor)
+
+        prediction = output.cpu().numpy()
+        logging.info(f"Prediction: {prediction}")
+
+        return prediction.squeeze()
+
     def inference(self) -> None:
         """
         Perform inference on the test dataset using the trained model
@@ -140,7 +306,7 @@ class Inference(object):
                 # will add as Params later
                 add_noise = False
                 if add_noise:
-                    SNR_lvl = 10 # SNR level in dB
+                    SNR_lvl = 10  # SNR level in dB
                     logging.info(f"SNR is: {SNR_lvl}")
                     noisy = self.add_awgn_correlated(inputs, SNR_lvl, time_axis=-1)
                     snr_meas = self.measure_snr_db(inputs, noisy, time_axis=-1)

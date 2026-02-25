@@ -29,14 +29,15 @@ class FeatureExtraction(object):
         self.sproul_text_file_path = Params.sproul_text_file_path
         self.num_channels = Params.audio_channels
         self.sampling_rate = Params.sampling_rate
-        self.n_fft = Params.n_fft
-        self.n_mels_bins = Params.n_mels_bins
-        self.hop_length = Params.hop_length
-        self.mel_wts = librosa.filters.mel(
-            sr=self.sampling_rate, n_fft=self.n_fft, n_mels=self.n_mels_bins
-        ).T
-        self.time_masking = T.TimeMasking(time_mask_param=Params.time_mask)
-        self.freq_masking = T.FrequencyMasking(freq_mask_param=Params.freq_mask)
+        self.total_folds = Params.total_folds
+        # self.n_fft = Params.n_fft
+        # self.n_mels_bins = Params.n_mels_bins
+        # self.hop_length = Params.hop_length
+        # self.mel_wts = librosa.filters.mel(
+        #     sr=self.sampling_rate, n_fft=self.n_fft, n_mels=self.n_mels_bins
+        # ).T
+        # self.time_masking = T.TimeMasking(time_mask_param=Params.time_mask)
+        # self.freq_masking = T.FrequencyMasking(freq_mask_param=Params.freq_mask)
 
     def load_data_from_csv(self) -> np.array:
         """
@@ -294,6 +295,86 @@ class FeatureExtraction(object):
 
         return metadata
 
+    def load_bell_simulated_data_and_labels(
+        self, pkl_path: str = "/mnt/active_storage/qv23/DCASE2024/bellhop/at/waveform_dataset.pkl"
+    ) -> tuple[np.array, np.array]:
+        """
+        Load the waveform dataset from pickle file (new format)
+
+        Args:
+            pkl_path: Path to the waveform_dataset.pkl file
+
+        Returns:
+            data_array: numpy array of shape (n_samples, 1500, 21)
+            labels: numpy array of shape (n_samples,) containing range in meters
+        """
+        with open(pkl_path, "rb") as f:
+            data = pickle.load(f)
+
+        samples = data["samples"]
+
+        # Extract waveforms and labels
+        data_array = np.stack([s["y_real"] for s in samples], axis=0)
+        labels = np.array([s["rx_range"] for s in samples])
+
+        logging.info(f"Loaded {len(samples)} samples from {pkl_path}")
+        logging.info(f"Data shape: {data_array.shape}")
+        logging.info(f"Labels shape: {labels.shape}")
+        logging.info(f"Unique ranges: {np.unique(labels)}")
+
+        return data_array, labels
+
+    def generate_bell_metadata_for_simulated_data(
+        self, pkl_path: str = "/mnt/active_storage/qv23/DCASE2024/bellhop/at/waveform_dataset.pkl"
+    ) -> pd.DataFrame:
+        """
+        Generate metadata DataFrame for the waveform dataset (new format)
+
+        Args:
+            pkl_path: Path to the waveform_dataset.pkl file
+
+        Returns:
+            metadata: DataFrame with columns [filename, range_km, fold, target]
+        """
+        with open(pkl_path, "rb") as f:
+            data = pickle.load(f)
+
+        samples = data["samples"]
+        num_samples = len(samples)
+
+        # Create metadata DataFrame
+        metadata = pd.DataFrame(columns=["filename", "range_km", "fold", "target"])
+
+        # Shuffle indices for random fold assignment
+        indices = np.arange(num_samples)
+        np.random.shuffle(indices)
+
+        # Assign folds randomly but evenly
+        fold_assignments = indices % self.total_folds + 1
+
+        for i, sample in enumerate(samples):
+            range_m = sample["rx_range"]
+            range_km = range_m / 1000.0  # Convert to km
+            filename = f"sample_{i + 1}.wav"
+            fold = fold_assignments[i]
+            target = float(range_km)
+
+            new_row = pd.DataFrame(
+                {
+                    "filename": [filename],
+                    "range_km": [range_km],
+                    "fold": [fold],
+                    "target": [target],
+                }
+            )
+            metadata = pd.concat([metadata, new_row], ignore_index=True)
+
+        # Log fold distribution
+        fold_counts = metadata["fold"].value_counts().sort_index()
+        logging.info(f"Fold distribution:\n{fold_counts}")
+
+        return metadata
+
     def add_noise_with_snr(self, signal, snr_db):
         """
         Add Gaussian noise to a signal with a specified SNR (in dB).
@@ -439,22 +520,37 @@ class FeatureExtraction(object):
 
         # else:
         logging.info("Sampling rate is an integer...")
+        logging.info(f"Input data_array shape: {data_array.shape}")
         self.sampling_rate = int(self.sampling_rate)
         for i in range(len(metadata)):
             filename = metadata.iloc[i]["filename"]
             range_km = metadata.iloc[i]["range_km"]
-            start_idx = i * self.sampling_rate
-            end_idx = min(
-                (i + 1) * self.sampling_rate, data_array.shape[0]
-            )  # Adjust for the last slice
-            data_dict[filename] = {
-                "data": (
-                    data_array[start_idx:end_idx]
-                    if Params.data_format_mode == "time_series"
-                    else data_array[i, :]
-                ),
-                "target": range_km,
-            }
+            
+            # Handle different data formats:
+            # - 2D array (total_samples, channels): slice by sampling_rate
+            # - 3D array (N, time_samples, channels): index by sample
+            if data_array.ndim == 3:
+                # Data is already chunked: (N, time_samples, channels)
+                data_dict[filename] = {
+                    "data": data_array[i, :, :],
+                    "target": range_km,
+                }
+            elif data_array.ndim == 2:
+                # Continuous time series: (total_samples, channels)
+                start_idx = i * self.sampling_rate
+                end_idx = min(
+                    (i + 1) * self.sampling_rate, data_array.shape[0]
+                )
+                data_dict[filename] = {
+                    "data": (
+                        data_array[start_idx:end_idx]
+                        if Params.data_format_mode == "time_series"
+                        else data_array[i, :]
+                    ),
+                    "target": range_km,
+                }
+            else:
+                raise ValueError(f"Unexpected data_array ndim: {data_array.ndim}")
 
         # self.sampling_rate = float(self.sampling_rate)
         # adjusted_sampling_rate = 3277 if self.sampling_rate == 3276.8 else int(self.sampling_rate)

@@ -12,11 +12,14 @@ sample_duration: 1.0
 data_format_mode: "time_series" # (Accepted: "time_series", "chunked_list")
 audio_channels: 21
 learning_rate: 1e-4
-num_epochs: 100
+num_epochs: 1500
 device: "cuda" # (Accepted: "cuda", "cpu")
 optimizer: "Adam"
 sampling_rate: 1500
 list_of_chunks_mode: false
+num_spectrograms: 4960
+simulated_num_samples: 4960
+
 
 # Multiple datasets - experiment, when used, provide the dataset paths below
 multiple_datasets_mode: false 
@@ -28,21 +31,23 @@ test_datasets: []
 # if cross_validation_mode = true, provide the total_folds, train_folds, validation_folds, and test_folds
 # if cross_validation_mode = false, provide the test_size
 # use either mode only, not both, when one mode is used, the other parameter is ignored
-cross_validation_mode: true
+cross_validation_mode: false
 total_folds: 6
-train_folds: [0, 1, 2, 3]
+train_folds: [0,1,2,3]
 validation_folds: [4]
 test_folds: [5]
-test_size: 0.7
+test_size: 0.9
 run_inference_mode: true
 finetune_mode: false # If finetune = true, pretrained_model_path must be provided
 log_verbose: false
 print_first_10th_predictions: false
-prediction_output_image_plot: "true_vs_predicted_labelsS5-newbeta-1.png"
+prediction_output_image_plot: "true_vs_predicted_labelsS5-newbell-non10pc.png"
 csv_file_path: "underwater-ssl/data/s59/vla/vla_raw_s59.csv"
 sproul_text_file_path: "underwater-ssl/data/s59/vla/SproulToVLA.S59.txt"
-best_model_path: "best_model-scratch-s5-leftright-betanew-trainone-test1.pth"
+best_model_path: "best_model-scratch-s5-vla-bell-2-10pc.pth"
 parallel_mode: false
-pretrained_model_path: "/mnt/active_storage/qv/net/model_checkpoints/best_model-scratch-s5.pth"
-dataset_path: "/mnt/active_storage/qv/swellex-6folds-real.pkl"
-save_dir: "/mnt/active_storage/qv/net/model_checkpoints"
+simulated_data_mode: false
+data_augmentation: false
+pretrained_model_path: "/mnt/active_storage/qv23/DCASE2024/swell24/net/model_checkpoints/best_model-scratch-s5-vla-bell-2-10pc.pth"
+dataset_path: "/mnt/active_storage/qv23/DCASE2024/swell24/swellex-6folds-real.pkl"
+save_dir: "/mnt/active_storage/qv23/DCASE2024/swell24/net/model_checkpoints"
