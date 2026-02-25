@@ -1,33 +1,47 @@
 # Spiking-NN-SSL
 
+## This codebase was developed as part of the experiments for the following papers
 
-## How to run
+Author: Quoc Thinh Vo - qv23 [at] drexel [dot] edu
 
-## If you have Docker installed on your machine, you can run the code with docker as well.
-### Build the image if you run it for the first time
+If you find this code useful and use it, in whole or in part, please consider citing the following papers:
+@@@
+
+## How to Run
+
+### Option 1: Run with Docker
+
+#### Build the image (first-time setup)
 ```bash
 ./run.sh build_docker_image
 ```
 
-## If you don't have Docker installed on your machine, remove the option `--with-docker` and run app as normally.
-### To start the feature extraction
+#### Start feature extraction (for the raw-signal spiking setup, this step simply splits the audio into 1-second segments and assigns labels accordingly)
 ```bash
 ./run.sh preprocess_features --with-docker
 ```
 
-### To train (test will automatically run with the option `run_inference_mode=True` in `parameters.yaml` file.)
+#### Train the model
+Test will automatically run when `run_inference_mode=True` in `parameters.yaml`.
 ```bash
 ./run.sh train_model --with-docker
 ```
 
-### To test your pretrained model, simply set the `pretrained_model_path` to your model and run
+#### Test a pretrained model
+Set `pretrained_model_path` in `parameters.yaml`, then run:
 ```bash
 ./run.sh test_model --with-docker
 ```
 
-## For iMaPLe Servers
-### Please run it in your own .env 
-### OR Don't override my virtual env if you run as below.
+### Option 2: Run without Docker
+
+If Docker is not available, remove the `--with-docker` option and run the Python scripts directly.
+
+### For iMaPLe Servers
+
+Please run in your own environment.
+
+Do not override my virtual environment if you use the setup below:
 ```bash
 cd ~qv23/user_data/clean-code-swell
 ```
@@ -35,20 +49,36 @@ cd ~qv23/user_data/clean-code-swell
 ```bash
 source swell-env/bin/activate
 ```
+### Run with ./run_imaple.sh
+```bash
+./run_imaple.sh preprocess_features
+./run_imaple.sh train_model
+./run_imaple.sh test_model
+```
 
-## Before running any scripts, make sure you check the `parameters.yaml` for file path, data, and other hyper-parameters, etc
-### To start the feature extraction
+Or simply run with `uv`
+```bash
+uv sync
+uv run python3 scripts/
+```
+
+### Direct Python Execution
+
+Before running scripts, check `parameters.yaml` for paths, data settings, and hyperparameters.
+
+#### Start feature extraction
 ```bash
 python3 underwater-ssl/process_features.py --params-file=parameters.yaml
 ```
 
-### To train (test will automatically run with the option `run_inference_mode=True` in `parameters.yaml` file.)
+#### Train the model
+Test will automatically run when `run_inference_mode=True` in `parameters.yaml`.
 ```bash
 python3 underwater-ssl/main.py --params-file=parameters.yaml
 ```
 
-### To test your pretrained model, simply set the `pretrained_model_path` to your model and run
+#### Test a pretrained model
+Set `pretrained_model_path` in `parameters.yaml`, then run:
 ```bash
 python3 underwater-ssl/main.py --params-file=parameters.yaml --run-test-only
 ```
-
