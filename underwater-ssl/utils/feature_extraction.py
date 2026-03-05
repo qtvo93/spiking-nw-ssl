@@ -537,32 +537,7 @@ class FeatureExtraction(object):
             else:
                 raise ValueError(f"Unexpected data_array ndim: {data_array.ndim}")
 
-        # self.sampling_rate = float(self.sampling_rate)
-        # adjusted_sampling_rate = 3277 if self.sampling_rate == 3276.8 else int(self.sampling_rate)
-        # logging.info(f"adjusted_sampling_rate: {adjusted_sampling_rate}")
-        # time_correction_factor = 3276.8 / adjusted_sampling_rate
-
-        # for i in range(len(metadata)):
-        #     filename = metadata.iloc[i]["filename"]
-        #     range_km = metadata.iloc[i]["range_km"]
-
-        #     # Adjust indices by scaling back to original time reference
-        #     start_idx = int(i * adjusted_sampling_rate * time_correction_factor)
-        #     end_idx = min(
-        #         int((i + 1) * adjusted_sampling_rate * time_correction_factor), data_array.shape[0]
-        #     )  # Ensure we stay within bounds
-
-        #     data_dict[filename] = {
-        #         "data": (
-        #             data_array[start_idx:end_idx]
-        #             if Params.data_format_mode == "time_series"
-        #             else data_array[i, :]
-        #         ),
-        #         "target": range_km,
-        #     }
-
         audio_list = set(metadata["filename"])
-        # output_dict = []
         output_dict = [[] for _ in range(Params.total_folds)]
 
         for index, row in metadata.iterrows():
@@ -571,39 +546,26 @@ class FeatureExtraction(object):
             target = row["target"]
             if name in audio_list:
                 signal = data_dict[name]["data"]
-                # if fold != 5:
-                #     noise = np.random.normal(0, 0.01, signal.shape)
-                #     signal = signal + noise
-                if fold != 5 and fold != 6:
-                    # signal_60 = self.add_noise_with_snr(signal, 2 * 60)
-                    # signal_50 = self.add_noise_with_snr(signal, 2 * 50)
-                    self.add_noise_with_snr(signal, 2 * 40)
+                # Experiments only, SA_Net does not use data augmentation in the paper
+                # and we only apply data augmentation to the training folds (fold 1-4)
+                # but not the validationa and test fold (fold 6)
+                if Params.data_augmentation == "noise" and fold != 5 and fold != 6:
                     self.add_noise_with_snr(signal, 2 * 35)
                     self.add_noise_with_snr(signal, 2 * 30)
                     self.add_noise_with_snr(signal, 2 * 25)
                     self.add_noise_with_snr(signal, 2 * 20)
                     self.add_noise_with_snr(signal, 2 * 15)
                     self.add_noise_with_snr(signal, 2 * 10)
-                    # signal_warp = self.time_warp_multichannel(signal, max_warp=0.2)
-                    # signal_flip = self.polarity_flip(signal)
-                    # signal_mixup, _ = self.mixup_split_multichannel(
-                    #     signal, alpha=0.3, split_ratio=0.7
-                    # )
-
+                if Params.data_augmentation == "time_warp" and fold != 5 and fold != 6:
+                    signal = self.time_warp_multichannel(signal, max_warp=0.2)
+                if Params.data_augmentation == "polarity_flip" and fold != 5 and fold != 6:
+                    signal = self.polarity_flip(signal)
+                if Params.data_augmentation == "mixup" and fold != 5 and fold != 6:
+                    signal, _ = self.mixup_split_multichannel(
+                        signal, alpha=0.3, split_ratio=0.7
+                    )
+   
                 target_value = data_dict[name]["target"]
-
-                # # ensure all signal is of share (1500, 21):
-                # assert (
-                #     signal.shape == (self.sampling_rate, self.num_channels)
-                #     and signal_warp.shape == (self.sampling_rate, self.num_channels)
-                #     and signal_mixup.shape == (self.sampling_rate, self.num_channels)
-                # ), f"Signal shape mismatch: signal={signal.shape}, signal_warp={signal_warp.shape}, signal_mixup={signal_mixup.shape}"
-
-                # output_dict.append({
-                #     "name": name,
-                #     "target": float(target),
-                #     "waveform": np.float32(signal),
-                # })
 
                 output_dict[int(fold) - 1].append(
                     {
@@ -612,91 +574,6 @@ class FeatureExtraction(object):
                         "waveform": np.float32(signal),
                     }
                 )
-                # if fold != 5 and fold != 6:
-                #     # output_dict[int(fold) - 1].append(
-                #     #     {
-                #     #         "name": name,
-                #     #         "target": float(target),
-                #     #         "waveform": np.float32(signal_60),
-                #     #     }
-                #     # )
-                #     # output_dict[int(fold) - 1].append(
-                #     #     {
-                #     #         "name": name,
-                #     #         "target": float(target),
-                #     #         "waveform": np.float32(signal_50),
-                #     #     }
-                #     # )
-                #     output_dict[int(fold) - 1].append(
-                #         {
-                #             "name": name,
-                #             "target": float(target),
-                #             "waveform": np.float32(signal_40),
-                #         }
-                #     )
-                #     output_dict[int(fold) - 1].append(
-                #         {
-                #             "name": name,
-                #             "target": float(target),
-                #             "waveform": np.float32(signal_35),
-                #         }
-                #     )
-                #     output_dict[int(fold) - 1].append(
-                #         {
-                #             "name": name,
-                #             "target": float(target),
-                #             "waveform": np.float32(signal_30),
-                #         }
-                #     )
-                #     output_dict[int(fold) - 1].append(
-                #         {
-                #             "name": name,
-                #             "target": float(target),
-                #             "waveform": np.float32(signal_25),
-                #         }
-                #     )
-                #     output_dict[int(fold) - 1].append(
-                #         {
-                #             "name": name,
-                #             "target": float(target),
-                #             "waveform": np.float32(signal_20),
-                #         }
-                #     )
-                #     output_dict[int(fold) - 1].append(
-                #         {
-                #             "name": name,
-                #             "target": float(target),
-                #             "waveform": np.float32(signal_15),
-                #         }
-                #     )
-                #     output_dict[int(fold) - 1].append(
-                #         {
-                #             "name": name,
-                #             "target": float(target),
-                #             "waveform": np.float32(signal_10),
-                #         }
-                #     )
-                #     output_dict[int(fold) - 1].append(
-                #         {
-                #             "name": name,
-                #             "target": float(target),
-                #             "waveform": np.float32(signal_warp),
-                #         }
-                #     )
-                #     output_dict[int(fold) - 1].append(
-                #         {
-                #             "name": name,
-                #             "target": float(target),
-                #             "waveform": np.float32(signal_flip),
-                #         }
-                #     )
-                #     output_dict[int(fold) - 1].append(
-                #         {
-                #             "name": name,
-                #             "target": float(target),
-                #             "waveform": np.float32(signal_mixup),
-                #         }
-                #     )
 
                 if index == 0:
                     logging.info("Logging the first audio file for sample check")
@@ -712,79 +589,7 @@ class FeatureExtraction(object):
             pickle.dump(output_dict, f)
         logging.info("Data saving completed.")
 
-    """
-        output_dict = [[] for _ in range(Params.total_folds)]
-        audio_list = set(metadata["filename"])
-
-        for index, row in metadata.iterrows():
-            name = row["filename"]
-            fold = row["fold"]
-            target = row["target"]
-            if name in audio_list:
-                signal, target_value = (
-                    data_dict[name]["data"],
-                    data_dict[name]["target"],
-                )
-
-                linear_spectra = self.get_spectrogram_from_array(
-                    signal, augmentation=self.data_augmentation
-                )
-
-                mel_spectrograms = self.get_mel_spectrogram(linear_spectra)
-                gcc_ph = self.get_gcc(linear_spectra)
-
-                feat = np.concatenate((mel_spectrograms, gcc_ph), axis=-1)
-
-                if np.isnan(feat).any():
-                    logging.info("Feature extraction is generating nan outputs")
-                    exit()
-
-                output_dict[int(fold) - 1].append(
-                    {
-                        "name": name,
-                        "target": float(target),
-                        "waveform": np.float32(feat),
-                    }
-                )
-                if index == 0:
-                    logging.info("Logging the first audio file for sample check")
-                    logging.info(
-                        f"Processing {name}, Fold: {fold}, Target: {target_value}"
-                    )
-                    logging.info(f"waveform: {np.float32(feat)}")
-                    logging.info(f"shape: {feat.shape}")
-                    logging.info(f"target: {float(target)}")
-                    logging.info("Continue to process the rest of the audio files...")
-
-        logging.info("Length of the dataset: ")
-        for i in range(Params.total_folds):
-            logging.info(f"Fold {i+1}: {len(output_dict[i])}")
-
-        # Save the dictionary using pickle
-        logging.info(f"Saving the dictionary to {output_file_name}...")
-        with open(output_file_name, "wb") as f:
-            pickle.dump(output_dict, f)
-        logging.info("Data saving completed.")
-
-        # Use below as HLA south too heavy for 1 file
-        # logging.info("Feature extraction completed. Saving training data...")
-        # output_dict_train = output_dict[0] + output_dict[1] + output_dict[2] + output_dict[3]
-        # with open("/mnt/active_storage/qv23/DCASE2024/swell24/swellex-data-HLA-South-6-1sec-1234-train.pkl", "wb") as f:
-        #     pickle.dump(output_dict_train, f)
-
-        # logging.info("Feature extraction completed. Saving validation data...")
-        # output_dict_val = output_dict[4]
-        # with open("/mnt/active_storage/qv23/DCASE2024/swell24/swellex-data-HLA-South-6-1sec-5-val.pkl", "wb") as f:
-        #     pickle.dump(output_dict_val, f)
-
-        # logging.info("Feature extraction completed. Saving test data...")
-        # output_dict_test = output_dict[5]
-        # with open("/mnt/active_storage/qv23/DCASE2024/swell24/swellex-data-HLA-South-6-1sec-6-test.pkl", "wb") as f:
-        #     pickle.dump(output_dict_test, f)
-
-        # logging.info("Data saving completed.")
-    """
-
+    # gcc and mel spectrogram features are used in the ACA_net paper
     def nCr(self, n: int, r: int) -> int:
         return math.factorial(n) // math.factorial(r) // math.factorial(n - r)
 

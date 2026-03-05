@@ -5,7 +5,8 @@ Codebase Author: Quoc Thinh Vo - qv23 [at] drexel [dot] edu
 
 If you find this code useful and use it, in whole or in part, please consider citing the following papers:
 
-##### Spiking Attention Network: A Hybrid Neuromorphic Approach to Underwater Acoustic Localization and Zero-shot Adaptation
+#### [Spiking Attention Network: A Hybrid Neuromorphic Approach to Underwater Acoustic Localization and Zero-shot Adaptation](https://ieeexplore.ieee.org/abstract/document/11226378/)
+Published in 2026 51th IEEE International Conference on Acoustics, Speech, and Signal Processing (ICASSP)
 ```
 @inproceedings{vo2026sa-net,
   title={Spiking Attention Network: A Hybrid Neuromorphic Approach to Underwater Acoustic Localization and Zero-shot Adaptation},
@@ -17,7 +18,8 @@ If you find this code useful and use it, in whole or in part, please consider ci
 }
 ```
 
-##### [Adaptive Control Attention Network for Underwater Acoustic Localization and Domain Adaptation](https://ieeexplore.ieee.org/abstract/document/11226378/)
+#### [Adaptive Control Attention Network for Underwater Acoustic Localization and Domain Adaptation](https://ieeexplore.ieee.org/abstract/document/11226378/)
+Published in 2025 33rd European Signal Processing Conference (EUSIPCO)
 ```
 @inproceedings{vo2025aca-net,
   title={Adaptive Control Attention Network for Underwater Acoustic Localization and Domain Adaptation},
