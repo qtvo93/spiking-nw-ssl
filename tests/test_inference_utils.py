@@ -7,11 +7,15 @@ import pytest
 import main as app_main
 
 
-def test_feature_extractor_main_flow(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+def test_feature_extractor_main_flow(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
     calls: dict[str, object] = {}
 
     class FakeOptions:
-        def __init__(self, params_file: str = "parameters.yaml", run_test_only: bool = False):
+        def __init__(
+            self, params_file: str = "parameters.yaml", run_test_only: bool = False
+        ):
             self.params_file = params_file
             self.run_test_only = run_test_only
 
@@ -23,7 +27,9 @@ def test_feature_extractor_main_flow(monkeypatch: pytest.MonkeyPatch, tmp_path: 
             calls["load_data_from_csv"] = True
             return np.zeros((20, 2), dtype=np.float32)
 
-        def generate_metadata(self, num_samples: int, sample_duration: float) -> pd.DataFrame:
+        def generate_metadata(
+            self, num_samples: int, sample_duration: float
+        ) -> pd.DataFrame:
             calls["generate_metadata"] = (num_samples, sample_duration)
             return pd.DataFrame(
                 {
@@ -62,7 +68,9 @@ def test_model_trainer_main_flow_runs_train_then_inference(
     calls: dict[str, object] = {"inference_count": 0}
 
     class FakeOptions:
-        def __init__(self, params_file: str = "parameters.yaml", run_test_only: bool = False):
+        def __init__(
+            self, params_file: str = "parameters.yaml", run_test_only: bool = False
+        ):
             self.params_file = params_file
             self.run_test_only = run_test_only
 
@@ -96,7 +104,9 @@ def test_model_trainer_test_only_runs_inference_and_exits(
     calls: dict[str, object] = {"train_called": False, "inference_count": 0}
 
     class FakeOptions:
-        def __init__(self, params_file: str = "parameters.yaml", run_test_only: bool = False):
+        def __init__(
+            self, params_file: str = "parameters.yaml", run_test_only: bool = False
+        ):
             self.params_file = params_file
             self.run_test_only = True
 

@@ -94,8 +94,9 @@ class FeatureExtraction(object):
         Returns:
             metadata: metadata for the dataset
         """
-        metadata = pd.DataFrame(columns=["filename", "range_km", "fold", "target"])
+        metadata_rows = []
         sproul_data = self.load_sproul_labels_and_preprocess()
+        sproul_data["Duration_seconds"] = sproul_data["Duration"] * 60
 
         # 7.932 7.042  5.953 5.087 4.251 3.382 2.574 1.800 1.147 0.905 1.396 2.179
         print(num_samples)
@@ -103,9 +104,6 @@ class FeatureExtraction(object):
         for i in range(num_samples):
 
             timestamp = i * sample_duration
-
-            # Convert the Duration column to seconds
-            sproul_data["Duration_seconds"] = sproul_data["Duration"] * 60
 
             closest_idx = np.argmin(np.abs(sproul_data["Duration_seconds"] - timestamp))
 
@@ -128,15 +126,18 @@ class FeatureExtraction(object):
 
             target = float(range_km)
 
-            new_row = pd.DataFrame(
+            metadata_rows.append(
                 {
-                    "filename": [filename],
-                    "range_km": [range_km],
-                    "fold": [fold],
-                    "target": [target],
+                    "filename": filename,
+                    "range_km": range_km,
+                    "fold": fold,
+                    "target": target,
                 }
             )
-            metadata = pd.concat([metadata, new_row], ignore_index=True)
+
+        metadata = pd.DataFrame(
+            metadata_rows, columns=["filename", "range_km", "fold", "target"]
+        )
 
         # Check if folds are balanced
         fold_counts = metadata["fold"].value_counts()

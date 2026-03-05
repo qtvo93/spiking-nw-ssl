@@ -7,12 +7,7 @@
 
 import os
 import logging
-import sys
-import argparse
 import torch
-import yaml
-import wandb
-import time
 import torch.nn as nn
 import torch.optim as optim
 
@@ -135,73 +130,4 @@ class MainApp(object):
 
 
 if __name__ == "__main__":
-    logging.basicConfig(
-        format="%(asctime)s %(levelname)-8s [%(filename)s:%(funcName)s:%(lineno)d] %(message)s",
-        datefmt="%Y-%m-%d:%H:%M:%S",
-        level=logging.INFO,
-        stream=sys.stdout,
-    )
-
-    if Params.log_verbose:
-        log = logging.getLogger()
-        log.setLevel(logging.DEBUG)
-        for handler in log.handlers:
-            handler.setLevel(logging.DEBUG)
-
-    parser = argparse.ArgumentParser(
-        description="Run the main program with parameters from a YAML file."
-    )
-    parser.add_argument(
-        "--params-file",
-        type=str,
-        required=True,
-        help="Path to the parameters YAML file.",
-    )
-    parser.add_argument(
-        "--run-test-only",
-        action="store_true",
-        help="Run the program in inference mode only.",
-    )
-    args = parser.parse_args()
-
-    start_time = time.time()
-    # Load parameters from YAML file
-    try:
-        params_file = args.params_file
-        Params.load_from_yaml(params_file)
-    except Exception as e:
-        logging.error(f"Error loading parameters from YAML file: {e}")
-        raise e
-
-    if Params.run_with_wandb:
-        wandb.init(
-            project=Params.wandb_training_project, name=Params.wandb_training_name
-        )
-        with open(params_file, "r") as file:
-            params = yaml.safe_load(file)
-        wandb.config.update(params)
-
-        artifact = wandb.Artifact("run_parameters", type="config")
-        artifact.add_file(params_file)
-        wandb.log_artifact(artifact)
-
-    main = MainApp()
-    train_loader, val_loader, test_loader = main.load_data_set()
-
-    if args.run_test_only:
-        logging.info("Running inference mode...")
-        main.inference(test_loader)
-        logging.info("Inference completed!")
-        sys.exit(0)
-
-    logging.info("Start training the model...")
-    main.train(train_loader, val_loader)
-    logging.info("Training completed!")
-    if Params.run_inference_mode:
-        logging.info("Running test on the test dataset...")
-        main.inference(test_loader)
-        logging.info("Inference completed!")
-
-    wandb.finish() if Params.run_with_wandb else None
-    end_time = time.time()
-    logging.info(f"Total time taken: {end_time - start_time} seconds")
+    logging.info("Start the main app...")

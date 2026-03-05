@@ -139,7 +139,7 @@ def feature_extractor():
 
     if Params.simulated_data_mode:
         logging.info("Using simulated data...")
-        data_array, labels = feature_extraction.load_bell_simulated_data_and_labels()
+        data_array, _ = feature_extraction.load_bell_simulated_data_and_labels()
         if Params.simulated_num_samples:
             num_samples = Params.simulated_num_samples
         else:
