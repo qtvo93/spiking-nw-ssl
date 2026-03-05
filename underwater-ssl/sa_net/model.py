@@ -7,19 +7,14 @@
 
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 import pytorch_lightning as pl
 from conformer import Conformer
 
 # from utils.parameters import Params
 from utils.set_seed import SetSeed
-from sklearn.preprocessing import MinMaxScaler, StandardScaler
+from sklearn.preprocessing import StandardScaler
 import snntorch as snn
-import snntorch.functional as SF
 from snntorch import surrogate
-from snntorch import spikegen
-import numpy as np
-import matplotlib.pyplot as plt
 
 
 class SA_NET(pl.LightningModule):
@@ -153,7 +148,7 @@ class OutputDataToSpikingPerceptronLayer(nn.Module):
         self.reducer = lambda x, dim: x.mean(dim=dim)
 
     def forward(self, x):
-        if type(x) == list:
+        if isinstance(x, list):
             x = torch.stack(x)
         return self.reducer(x, 0)
 

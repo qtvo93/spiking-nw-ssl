@@ -11,14 +11,12 @@ import matplotlib.pyplot as plt
 import torch
 import os
 import logging
-import torch.nn as nn
 from torch.utils.data import DataLoader
-from typing import Optional, Sequence, Union
+from typing import Any, Optional, Union
 
 from utils.parameters import Params
 from utils.data_loader import CustomDataset
 from utils.set_seed import SetSeed
-from utils.inspector import ModelInspector
 
 
 class Inference(object):
@@ -285,16 +283,14 @@ class Inference(object):
         self.model.load_state_dict(torch.load(best_model_path))
         self.model = self.model.to(self.device)
         self.model.eval()
-        all_predictions = []
-        all_targets = []
+        all_predictions: list[Any] = []
+        all_targets: list[Any] = []
 
         # if not Params.cross_validation_mode:
         #     logging.info("Sort the test dataset...")
         #     # Sort the test_loader
         #     self.test_loader = self.sort_test_loader(self.test_loader)
 
-        inspector = ModelInspector(self.model)
-        # inspector.register_hooks()
         with torch.no_grad():
             for batch, data in enumerate(self.test_loader):
 
@@ -332,16 +328,20 @@ class Inference(object):
         # inspector.remove_hooks()
 
         # Convert lists to numpy arrays for easier manipulation
-        all_predictions = np.array(all_predictions)
-        all_targets = np.array(all_targets)
+        all_predictions_np = np.array(all_predictions)
+        all_targets_np = np.array(all_targets)
 
         if not Params.cross_validation_mode:
-            sorted_dict = sorted(zip(all_predictions, all_targets), key=lambda x: x[1])
-            all_predictions, all_targets = zip(*sorted_dict)
+            sorted_dict = sorted(
+                zip(all_predictions_np, all_targets_np), key=lambda x: x[1]
+            )
+            if sorted_dict:
+                all_predictions_np = np.array([pred for pred, _ in sorted_dict])
+                all_targets_np = np.array([targ for _, targ in sorted_dict])
 
         if Params.print_first_10th_predictions:
-            logging.info(all_predictions[:10])
-            logging.info(all_targets[:10])
+            logging.info(all_predictions_np[:10])
+            logging.info(all_targets_np[:10])
 
         def calculate_metrics(predictions, targets):
             S = len(targets)
@@ -365,30 +365,30 @@ class Inference(object):
 
             return mae, mse
 
-        mae, mse = calculate_metrics(all_predictions, all_targets)
+        mae, mse = calculate_metrics(all_predictions_np, all_targets_np)
         logging.info(f"MAE: {mae}")
         logging.info(f"MSE: {mse}")
 
         # IF S59 and test all 6 folds, rearrange for a nicer plot (stack 6 folds instead of plot 1 by 1):
-        if "s59" in Params.dataset_path and Params.cross_validation_mode == True:
+        if "s59" in Params.dataset_path and Params.cross_validation_mode:
             # folds = list of six 1-D arrays, all length L
             # e.g., folds = [fold1, fold2, fold3, fold4, fold5, fold6]
             n_folds = Params.total_folds
-            fold_len = all_predictions.shape[0] // n_folds
+            fold_len = all_predictions_np.shape[0] // n_folds
 
             # Reshape to (folds, fold_len)
-            preds = all_predictions.reshape(n_folds, fold_len)
-            targs = all_targets.reshape(n_folds, fold_len)
+            preds = all_predictions_np.reshape(n_folds, fold_len)
+            targs = all_targets_np.reshape(n_folds, fold_len)
 
             # Transpose to (fold_len, folds) and flatten row-wise
-            all_predictions = preds.T.reshape(-1)
-            all_targets = targs.T.reshape(-1)
+            all_predictions_np = preds.T.reshape(-1)
+            all_targets_np = targs.T.reshape(-1)
 
         # Select every 10th point
-        indices = np.arange(1, len(all_targets) + 1)
+        indices = np.arange(1, len(all_targets_np) + 1)
         indices_10th = indices[::10]
-        all_targets_10th = all_targets[::10]
-        all_predictions_10th = all_predictions[::10]
+        all_targets_10th = all_targets_np[::10]
+        all_predictions_10th = all_predictions_np[::10]
 
         # Ensure the arrays are 1-dimensional
         all_targets_10th = np.squeeze(all_targets_10th)

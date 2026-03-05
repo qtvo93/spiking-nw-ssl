@@ -13,12 +13,12 @@ import yaml
 import time
 import os
 
-os.environ["CUBLAS_WORKSPACE_CONFIG"] = ":4096:8"
-
 from options import Options, BaseOptions
 from model_app import MainApp
 from utils.feature_extraction import FeatureExtraction
 from utils.parameters import Params
+
+os.environ["CUBLAS_WORKSPACE_CONFIG"] = ":4096:8"
 
 app = typer.Typer(
     help="Run the preprocessing features program or model Trainer with parameters from a YAML file."
@@ -97,7 +97,7 @@ def model_trainer():
     logging.info("Start training the model...")
     model_trainer.train(train_loader, val_loader)
     logging.info("Training completed!")
-    if Params.run_inference_mode == True:
+    if Params.run_inference_mode:
         infer_time = time.time()
         logging.info("Running test on the test dataset...")
         model_trainer.inference(test_loader)

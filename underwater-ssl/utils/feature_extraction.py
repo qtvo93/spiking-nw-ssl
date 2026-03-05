@@ -14,7 +14,6 @@ import math
 import pickle
 import logging
 import joblib
-import torchaudio.transforms as T
 from scipy.interpolate import interp1d
 from utils.parameters import Params
 
@@ -99,20 +98,6 @@ class FeatureExtraction(object):
         sproul_data = self.load_sproul_labels_and_preprocess()
 
         # 7.932 7.042  5.953 5.087 4.251 3.382 2.574 1.800 1.147 0.905 1.396 2.179
-        test_ranges = [
-            7.932,
-            7.042,
-            5.953,
-            5.087,
-            4.251,
-            3.382,
-            2.574,
-            1.800,
-            1.147,
-            0.905,
-            1.396,
-            2.179,
-        ]
         print(num_samples)
         # Iterate through each spectrogram
         for i in range(num_samples):
@@ -591,13 +576,13 @@ class FeatureExtraction(object):
                 if fold != 5 and fold != 6:
                     # signal_60 = self.add_noise_with_snr(signal, 2 * 60)
                     # signal_50 = self.add_noise_with_snr(signal, 2 * 50)
-                    signal_40 = self.add_noise_with_snr(signal, 2 * 40)
-                    signal_35 = self.add_noise_with_snr(signal, 2 * 35)
-                    signal_30 = self.add_noise_with_snr(signal, 2 * 30)
-                    signal_25 = self.add_noise_with_snr(signal, 2 * 25)
-                    signal_20 = self.add_noise_with_snr(signal, 2 * 20)
-                    signal_15 = self.add_noise_with_snr(signal, 2 * 15)
-                    signal_10 = self.add_noise_with_snr(signal, 2 * 10)
+                    self.add_noise_with_snr(signal, 2 * 40)
+                    self.add_noise_with_snr(signal, 2 * 35)
+                    self.add_noise_with_snr(signal, 2 * 30)
+                    self.add_noise_with_snr(signal, 2 * 25)
+                    self.add_noise_with_snr(signal, 2 * 20)
+                    self.add_noise_with_snr(signal, 2 * 15)
+                    self.add_noise_with_snr(signal, 2 * 10)
                     # signal_warp = self.time_warp_multichannel(signal, max_warp=0.2)
                     # signal_flip = self.polarity_flip(signal)
                     # signal_mixup, _ = self.mixup_split_multichannel(

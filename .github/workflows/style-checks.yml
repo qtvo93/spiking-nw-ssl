@@ -1,0 +1,36 @@
+name: Style and Unit Tests
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  lint-and-types:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v4
+
+      - name: Sync dependencies
+        run: uv sync
+
+      - name: Black check
+        run: uv run black underwater-ssl --check
+
+      - name: Mypy check
+        run: uv run --with pip mypy underwater-ssl --install-types --non-interactive
+
+      - name: Flake8 check
+        run: uv run flake8 underwater-ssl
+
+      - name: Unit tests
+        run: uv run --with pytest pytest -q tests/

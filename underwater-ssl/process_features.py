@@ -58,10 +58,7 @@ if __name__ == "__main__":
             num_samples = int(
                 len(data_array) / (Params.sampling_rate * Params.sample_duration)
             )
-        metadata = feature_extraction.generate_bell_metadata_for_simulated_data(
-            num_samples=num_samples,
-            labels=labels,
-        )
+        metadata = feature_extraction.generate_bell_metadata_for_simulated_data()
     else:
         logging.info("Using real data...")
         data_array = feature_extraction.load_data_from_csv()
