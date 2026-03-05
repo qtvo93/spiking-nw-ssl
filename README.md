@@ -112,7 +112,7 @@ Set `pretrained_model_path` in `parameters.yaml`, then run:
 python3 underwater-ssl/main.py --params-file=parameters.yaml --run-test-only model_trainer
 ```
 
-### For iMaPLe Research Lan Servers
+### For iMaPLe Research Lab Servers
 
 Please run in your own environment.
 
