@@ -1,8 +1,9 @@
 # Description: This file contains the parameters used in the model training and inference.
 # Author: Quoc Thinh Vo - qv23@drexel.edu
-# Last Modified: 2024-10-16
+# Last Modified: 2026-03-20
 # If you refer to or use this code, in whole or in part, please consider citing the following papers:
-# @@@
+# 1. Spiking Attention Network: A Hybrid Neuromorphic Approach to Underwater Acoustic Localization and Zero-shot Adaptation
+# 2. Adaptive Control Attention Network for Underwater Acoustic Localization and Domain Adaptation
 
 import torch
 import yaml
@@ -17,6 +18,7 @@ class Params(object):
     data_format_mode = "time_series"
     audio_channels = 21
     learning_rate = 1e-4
+    num_samples = 4500
     num_epochs = 1000
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     optimizer = "Adam"

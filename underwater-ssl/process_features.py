@@ -1,8 +1,9 @@
-# Description: This script extracts features from the dataset and saves them to a pickle file.
+# Description: This file contains the process for feature extraction.
 # Author: Quoc Thinh Vo - qv23@drexel.edu
-# Last Modified: 2024-10-16
+# Last Modified: 2026-03-20
 # If you refer to or use this code, in whole or in part, please consider citing the following papers:
-# @@@
+# 1. Spiking Attention Network: A Hybrid Neuromorphic Approach to Underwater Acoustic Localization and Zero-shot Adaptation
+# 2. Adaptive Control Attention Network for Underwater Acoustic Localization and Domain Adaptation
 
 import logging
 import sys
@@ -52,13 +53,13 @@ if __name__ == "__main__":
         logging.info("Using simulated data...")
         data_array, labels = feature_extraction.load_bell_simulated_data_and_labels()
         if Params.simulated_num_samples:
-            num_spectrograms = Params.simulated_num_samples
+            num_samples = Params.simulated_num_samples
         else:
-            num_spectrograms = int(
+            num_samples = int(
                 len(data_array) / (Params.sampling_rate * Params.sample_duration)
             )
         metadata = feature_extraction.generate_bell_metadata_for_simulated_data(
-            num_spectrograms=num_spectrograms,
+            num_samples=num_samples,
             labels=labels,
         )
     else:
@@ -66,11 +67,11 @@ if __name__ == "__main__":
         data_array = feature_extraction.load_data_from_csv()
         sproul_data = feature_extraction.load_sproul_labels_and_preprocess()
 
-        num_spectrograms = int(
+        num_samples = int(
             len(data_array) / (Params.sampling_rate * Params.sample_duration)
         )
         metadata = feature_extraction.generate_metadata(
-            num_spectrograms=num_spectrograms,
+            num_samples=num_samples,
             sample_duration=Params.sample_duration,
         )
 

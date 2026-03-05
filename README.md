@@ -31,7 +31,21 @@ If you find this code useful and use it, in whole or in part, please consider ci
 
 ## How to Run
 
-### Option 1: Run with Docker
+Before running scripts, check `parameters.yaml` for paths, data settings, and hyperparameters.
+
+### Option 1: Run with UV
+
+Prerequesite: https://docs.astral.sh/uv/
+Simply run any scripts with `uv`
+
+```bash
+uv sync
+uv run python3 underwater-ssl/main.py --params-file=parameters.yaml feature_extractor
+uv run python underwater-ssl/main.py --params-file=parameters.yaml model_trainer
+uv run python underwater-ssl/main.py --params-file=parameters.yaml --run-test-only model_trainer
+```
+
+### Option 2: Run with Docker
 
 #### Build the image (first-time setup)
 ```bash
@@ -55,11 +69,49 @@ Set `pretrained_model_path` in `parameters.yaml`, then run:
 ./run.sh test_model --with-docker
 ```
 
-### Option 2: Run without Docker
+### Option 3: Run without Docker
 
-If Docker is not available, remove the `--with-docker` option and run the Python scripts directly.
+If `uv` and `Docker` is not available, remove the `--with-docker` option and run the Python scripts directly.
 
-### For iMaPLe Servers
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+./run_imaple.sh preprocess_features
+./run_imaple.sh train_model
+./run_imaple.sh test_model
+```
+
+### Option 4: Direct Python Execution
+
+#### Init virtual env
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+```
+
+#### Install the dependencies
+```bash
+pip install -r requirements.txt
+```
+#### Start feature extraction
+```bash
+python3 underwater-ssl/main.py --params-file=parameters.yaml feature_extractor
+```
+
+#### Train the model
+Test will automatically run when `run_inference_mode=True` in `parameters.yaml`.
+```bash
+python3 underwater-ssl/main.py --params-file=parameters.yaml model_trainer
+```
+
+#### Test a pretrained model
+Set `pretrained_model_path` in `parameters.yaml`, then run:
+```bash
+python3 underwater-ssl/main.py --params-file=parameters.yaml --run-test-only model_trainer
+```
+
+### For iMaPLe Research Lan Servers
 
 Please run in your own environment.
 
@@ -76,32 +128,4 @@ source swell-env/bin/activate
 ./run_imaple.sh preprocess_features
 ./run_imaple.sh train_model
 ./run_imaple.sh test_model
-```
-
-### Run with UV
-Simply run any scripts with `uv`
-```bash
-uv sync
-uv run python3 scripts/
-```
-
-### Direct Python Execution
-
-Before running scripts, check `parameters.yaml` for paths, data settings, and hyperparameters.
-
-#### Start feature extraction
-```bash
-python3 underwater-ssl/main.py --params-file=parameters.yaml feature_extractor
-```
-
-#### Train the model
-Test will automatically run when `run_inference_mode=True` in `parameters.yaml`.
-```bash
-python3 underwater-ssl/main.py --params-file=parameters.yaml model_trainer
-```
-
-#### Test a pretrained model
-Set `pretrained_model_path` in `parameters.yaml`, then run:
-```bash
-python3 underwater-ssl/main.py --params-file=parameters.yaml --run-test-only model_trainer
 ```

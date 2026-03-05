@@ -12,14 +12,15 @@ sample_duration: 1.0
 data_format_mode: "time_series" # (Accepted: "time_series", "chunked_list")
 audio_channels: 21
 learning_rate: 1e-4
-num_epochs: 1500
+num_epochs: 10
 device: "cuda" # (Accepted: "cuda", "cpu")
 optimizer: "Adam"
 sampling_rate: 1500
 list_of_chunks_mode: false
-num_spectrograms: 4960
-simulated_num_samples: 4960
-
+num_samples: 4500
+# Only used if simulated_data_mode = true
+# This is the number of samples to process for the simulated dataset
+simulated_num_samples: 4960 
 
 # Multiple datasets - experiment, when used, provide the dataset paths below
 multiple_datasets_mode: false 
@@ -42,12 +43,12 @@ finetune_mode: false # If finetune = true, pretrained_model_path must be provide
 log_verbose: false
 print_first_10th_predictions: false
 prediction_output_image_plot: "true_vs_predicted_labelsS5-newbell-non10pc.png"
-csv_file_path: "underwater-ssl/data/s59/vla/vla_raw_s59.csv"
-sproul_text_file_path: "underwater-ssl/data/s59/vla/SproulToVLA.S59.txt"
-best_model_path: "best_model-scratch-s5-vla-bell-2-10pc.pth"
+csv_file_path: "data/vla_raw.csv"
+sproul_text_file_path: "data/SproulToVLA.S5.txt"
+best_model_path: "best_model-scratch-s5-10pc.pth"
 parallel_mode: false
 simulated_data_mode: false
 data_augmentation: false
-pretrained_model_path: "/mnt/active_storage/qv23/DCASE2024/swell24/net/model_checkpoints/best_model-scratch-s5-vla-bell-2-10pc.pth"
-dataset_path: "/mnt/active_storage/qv23/DCASE2024/swell24/swellex-6folds-real.pkl"
-save_dir: "/mnt/active_storage/qv23/DCASE2024/swell24/net/model_checkpoints"
+pretrained_model_path: "model_checkpoints/best_model-scratch-s5-vla-10pc.pth" # Only needed if finetune_mode is true
+dataset_path: "swellex-6folds-real.pkl"
+save_dir: "model_checkpoints"
