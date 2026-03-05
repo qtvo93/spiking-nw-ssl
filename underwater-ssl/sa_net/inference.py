@@ -1,7 +1,7 @@
 # Description: This file contains the Inference class
 # which is responsible for performing inference on the test dataset
 # Author: Quoc Thinh Vo - qv23@drexel.edu
-# Last Modified: 2026-03-20
+# Last Modified: 2026-03-05
 # If you refer to or use this code, in whole or in part, please consider citing the following papers:
 # 1. Spiking Attention Network: A Hybrid Neuromorphic Approach to Underwater Acoustic Localization and Zero-shot Adaptation
 # 2. Adaptive Control Attention Network for Underwater Acoustic Localization and Domain Adaptation

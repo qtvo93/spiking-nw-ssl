@@ -17,7 +17,7 @@ If you find this code useful and use it, in whole or in part, please consider ci
 }
 ```
 
-##### Adaptive Control Attention Network for Underwater Acoustic Localization and Domain Adaptation
+##### [Adaptive Control Attention Network for Underwater Acoustic Localization and Domain Adaptation](https://ieeexplore.ieee.org/abstract/document/11226378/)
 ```
 @inproceedings{vo2025aca-net,
   title={Adaptive Control Attention Network for Underwater Acoustic Localization and Domain Adaptation},
