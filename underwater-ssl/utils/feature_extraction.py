@@ -98,9 +98,11 @@ class FeatureExtraction(object):
         sproul_data = self.load_sproul_labels_and_preprocess()
         sproul_data["Duration_seconds"] = sproul_data["Duration"] * 60
 
+        # Senario 2 test locations
         # 7.932 7.042  5.953 5.087 4.251 3.382 2.574 1.800 1.147 0.905 1.396 2.179
-        print(num_samples)
-        # Iterate through each spectrogram
+        # test_ranges = [7.932, 7.042, 5.953, 5.087, 4.251, 3.382, 2.574, 1.800, 1.147, 0.905, 1.396, 2.179]
+        logging.info(num_samples)
+        # Iterate through each sample
         for i in range(num_samples):
 
             timestamp = i * sample_duration
@@ -112,11 +114,10 @@ class FeatureExtraction(object):
             filename = f"file_{i+1}.wav"
             # if Params.normal_split: # Normal
             fold = i % Params.total_folds + 1
+            # if float(range_km) in test_ranges:
+            #     fold = 6
             # else:
-            #     if float(range_km) in test_ranges:
-            #         fold = 6
-            #     else:
-            #         fold = i % 5 + 1
+            #     fold = fold_assignments[i]
 
             # This is Secenario 3 Doppler testing
             # if i > 3599:
@@ -145,6 +146,294 @@ class FeatureExtraction(object):
 
         return metadata
 
+    def extract_features(
+        self,
+        data_array: np.array,
+        metadata: pd.DataFrame,
+        output_file_name: str,
+    ) -> None:
+        """
+        Extract features from the data and save the dictionary to a pickle file
+
+        Args:
+            data_array: numpy array containing the data
+            metadata: metadata for the dataset
+            output_file_name: name of the output file
+
+        Returns:
+            None
+        """
+        data_dict = {}
+
+        # if isinstance(self.sampling_rate, float) or "." in str(self.sampling_rate):
+        #     logging.info("Sampling rate is a float...")
+        #     self.sampling_rate = float(self.sampling_rate)
+        #     total_seconds = len(data_array) // self.sampling_rate
+        #     logging.info(f"total_seconds: {total_seconds}")
+        #     num_slices = total_seconds // Params.sample_duration
+
+        #     # Compute the exact indices using cumulative rounding
+        #     start_indices = np.round(np.arange(0, total_seconds) * self.sampling_rate).astype(int)
+        #     end_indices = np.append(start_indices[1:], data_array.shape[0])  # Shifted indices for slicing
+
+        #     for i in range(num_slices):
+        #         filename = f"slice_{i}"
+        #         range_km = metadata.iloc[i]["range_km"]
+
+        #         start_idx, end_idx = start_indices[i], end_indices[i]
+
+        #         data_dict[filename] = {
+        #             "data": (
+        #                 data_array[start_idx:end_idx]
+        #                 if Params.data_format_mode == "time_series"
+        #                 else data_array[i, :]
+        #             ),
+        #             "target": range_km,
+        #         }
+
+        # else:
+        logging.info("Sampling rate is an integer...")
+        logging.info(f"Input data_array shape: {data_array.shape}")
+        self.sampling_rate = int(self.sampling_rate)
+        for i in range(len(metadata)):
+            filename = metadata.iloc[i]["filename"]
+            range_km = metadata.iloc[i]["range_km"]
+
+            # Handle different data formats:
+            # - 2D array (total_samples, channels): slice by sampling_rate
+            # - 3D array (N, time_samples, channels): index by sample
+            if data_array.ndim == 3:
+                # Data is already chunked: (N, time_samples, channels)
+                data_dict[filename] = {
+                    "data": data_array[i, :, :],
+                    "target": range_km,
+                }
+            elif data_array.ndim == 2:
+                # Continuous time series: (total_samples, channels)
+                start_idx = i * self.sampling_rate
+                end_idx = min((i + 1) * self.sampling_rate, data_array.shape[0])
+                data_dict[filename] = {
+                    "data": (
+                        data_array[start_idx:end_idx]
+                        if Params.data_format_mode == "time_series"
+                        else data_array[i, :]
+                    ),
+                    "target": range_km,
+                }
+            else:
+                raise ValueError(f"Unexpected data_array ndim: {data_array.ndim}")
+
+        audio_list = set(metadata["filename"])
+        output_dict = [[] for _ in range(Params.total_folds)]
+
+        # Experiments only, SA_Net does not use data augmentation in the paper
+        # and we only apply data augmentation to the training folds (e.g.: fold 1-4)
+        # but not the validation and test fold (e.g.: fold 5 and 6)
+        # use cross_validation_mode to easily control whether to use fold-based augmentation
+        aug_mode = Params.data_augmentation
+        excluded_folds = set(Params.test_folds) | set(Params.validation_folds)
+        logging.info(f"Augmentation mode: {aug_mode}, Excluded folds for augmentation: {excluded_folds}")
+
+        for index, row in metadata.iterrows():
+            name = row["filename"]
+            fold = row["fold"]
+            target = row["target"]
+            if name in audio_list:
+                signal = data_dict[name]["data"]
+                # Experiments only, SA_Net does not use data augmentation in the paper
+                # and we only apply data augmentation to the training folds (e.g.: fold 1-4)
+                # but not the validation and test fold (e.g.: fold 5 and 6)
+                # use cross_validation_mode to easily control whether to use fold-based augmentation
+                fold_idx = int(fold) - 1
+               
+                if fold_idx not in excluded_folds:
+                    if aug_mode in {"noise", "all_augment"}:
+                        signal = self.add_noise_with_snr(signal, 2 * 35)
+                        signal = self.add_noise_with_snr(signal, 2 * 30)
+                        signal = self.add_noise_with_snr(signal, 2 * 25)
+                        signal = self.add_noise_with_snr(signal, 2 * 20)
+                        signal = self.add_noise_with_snr(signal, 2 * 15)
+                        signal = self.add_noise_with_snr(signal, 2 * 10)
+                    if aug_mode in {"time_warp", "all_augment"}:
+                        signal = self.time_warp_multichannel(signal, max_warp=0.2)
+                    if aug_mode in {"polarity_flip", "all_augment"}:
+                        signal = self.polarity_flip(signal)
+                    if aug_mode in {"mixup", "all_augment"}:
+                        signal, _ = self.mixup_split_multichannel(
+                            signal, alpha=0.3, split_ratio=0.7
+                        )
+
+                target_value = data_dict[name]["target"]
+
+                output_dict[fold_idx].append(
+                    {
+                        "name": name,
+                        "target": float(target),
+                        "waveform": np.float32(signal),
+                    }
+                )
+
+                if index == 0:
+                    logging.info("Logging the first audio file for sample check")
+                    logging.info(
+                        f"Processing {name}, Fold: {fold}, Target: {target_value}"
+                    )
+                    logging.info(f"waveform: {np.float32(signal)}")
+                    logging.info(f"shape: {signal.shape}")
+                    logging.info(f"target: {float(target)}")
+                    logging.info("Continue to process the rest of the audio files...")
+
+        with open(output_file_name, "wb") as f:
+            pickle.dump(output_dict, f)
+        logging.info("Data saving completed.")
+
+    # gcc and mel spectrogram features are used in the ACA_net paper
+    def nCr(self, n: int, r: int) -> int:
+        return math.factorial(n) // math.factorial(r) // math.factorial(n - r)
+
+    def get_gcc(self, linear_spectra: np.array) -> np.array:
+        """
+        Compute the Generalized Cross-Correlation (GCC) from the linear spectrogram
+
+        Args:
+            linear_spectra: linear spectrogram
+
+        Returns:
+            gcc_feat: GCC feature
+        """
+        gcc_channels = self.nCr(linear_spectra.shape[-1], 2)
+        # logging.info("gcc_channels: ", gcc_channels)
+        gcc_feat = np.zeros((linear_spectra.shape[0], self.n_mels_bins, gcc_channels))
+        cnt = 0
+        for m in range(linear_spectra.shape[-1]):
+            for n in range(m + 1, linear_spectra.shape[-1]):
+                R = np.conj(linear_spectra[:, :, m]) * linear_spectra[:, :, n]
+                cc = np.fft.irfft(np.exp(1.0j * np.angle(R)))
+                cc = np.concatenate(
+                    (cc[:, -self.n_mels_bins // 2 :], cc[:, : self.n_mels_bins // 2]),
+                    axis=-1,
+                )
+                gcc_feat[:, :, cnt] = cc
+                cnt += 1
+        return gcc_feat.transpose((0, 2, 1)).reshape((linear_spectra.shape[0], -1))
+
+    def add_noise(self, signal: np.array, snr_db: int) -> np.array:
+        """
+        Adds Gaussian noise to a signal to achieve a specified SNR.
+
+        Args:
+            signal: Input signal (numpy array or torch tensor)
+            snr_db: Desired Signal-to-Noise Ratio in dB
+
+        Returns:
+            Noisy signal
+        """
+
+        signal_power = np.mean(signal**2)
+        snr_linear = 10 ** (snr_db / 10)
+        noise_power = signal_power / snr_linear
+        noise = np.sqrt(noise_power) * np.random.randn(*signal.shape)
+
+        noisy_signal = signal + noise
+
+        return noisy_signal
+
+    def time_shift(self, signal: np.array, shift: int) -> np.array:
+        """
+        Shift the signal in time by the specified number of frames
+
+        Args:
+            signal: input signal
+            shift: number of frames to shift the signal by
+
+        Returns:
+            shifted signal
+        """
+        return np.roll(signal, shift)
+
+    def get_spectrogram_from_array(self, audio, augmentation=None) -> np.array:
+        """
+        Call the get_spectrogram function to get linear spectrogram from the audio input
+        with the specified augmentation and number of frames
+
+        Args:
+            audio: audio input
+            augmentation: augmentation type
+
+        Returns:
+            audio_spec: linear spectrogram
+        """
+        nb_feat_frames = int(len(audio) / float(self.hop_length))
+
+        audio_spec = self.get_spectrogram(audio, nb_feat_frames, augmentation)
+        return audio_spec
+
+    def get_spectrogram(
+        self, audio_input: np.array, nb_frames, augmentation=None
+    ) -> np.array:
+        """
+        Compute the linear spectrogram
+
+        Args:
+            audio_input: audio input
+            nb_frames: number of frames
+            augmentation: augmentation type
+
+        Returns:
+            spectra: linear spectrogram
+        """
+        n_ch = audio_input.shape[1]
+        spectra = []
+        for ch_cnt in range(n_ch):
+            signal = audio_input[:, ch_cnt].astype(float)
+
+            if isinstance(augmentation, int) and augmentation != 0:
+                signal = self.add_noise(signal, augmentation)
+
+            stft_ch = librosa.core.stft(
+                np.asfortranarray(signal),
+                n_fft=self.n_fft,
+                hop_length=self.hop_length,
+                win_length=2 * self.hop_length,
+                window="hann",
+            )
+
+            if augmentation == "time_masking" or augmentation == "freq_masking":
+                magnitude, phase = librosa.magphase(stft_ch)
+                magnitude = torch.from_numpy(magnitude)
+
+                if augmentation == "time_masking":
+                    magnitude = self.time_masking(magnitude)
+                elif augmentation == "freq_masking":
+                    magnitude = self.freq_masking(magnitude)
+
+                magnitude = magnitude.cpu().numpy()
+                stft_ch = magnitude * np.exp(1j * phase)
+
+            spectra.append(stft_ch[:, :nb_frames])
+        return np.array(spectra).T
+
+    def get_mel_spectrogram(self, linear_spectra: np.array) -> np.array:
+        """
+        Compute the mel spectrogram from the linear spectrogram
+
+        Args:
+            linear_spectra: linear spectrogram
+
+        Returns:
+            mel_feat: mel spectrogram
+        """
+        mel_feat = np.zeros(
+            (linear_spectra.shape[0], self.n_mels_bins, linear_spectra.shape[-1])
+        )
+        for ch_cnt in range(linear_spectra.shape[-1]):
+            mag_spectra = np.abs(linear_spectra[:, :, ch_cnt]) ** 2
+            mel_spectra = np.dot(mag_spectra, self.mel_wts)
+            log_mel_spectra = librosa.power_to_db(mel_spectra)
+            mel_feat[:, :, ch_cnt] = log_mel_spectra
+        mel_feat = mel_feat.transpose((0, 2, 1)).reshape((linear_spectra.shape[0], -1))
+        return mel_feat
+
     def load_simulated_data_and_labels(self) -> tuple[np.array, np.array]:
         """
         Load the simulated data and labels
@@ -165,16 +454,13 @@ class FeatureExtraction(object):
 
         labels = joblib.load(Params.simulated_data_labels_path)
         all_channels_data = np.array(all_channels_data)
-        # print(all_channels_data.shape)
+
         data_array = (
             all_channels_data.transpose((1, 0))
             if Params.data_format_mode == "time_series"
             else all_channels_data.transpose((1, 2, 0))
         )
         labels = np.array(labels)
-        # print(data_array.shape)
-        # print(labels.shape)
-        # return data_array[:6000], labels[:6000]
         return data_array, labels
 
     def generate_metadata_for_simulated_data(
@@ -184,7 +470,7 @@ class FeatureExtraction(object):
         Generate metadata for the simulated dataset
 
         Args:
-            num_samples: number of spectrograms
+            num_samples: number of samples
             labels: numpy array containing the labels
 
         Returns:
@@ -204,7 +490,7 @@ class FeatureExtraction(object):
 
         if Params.data_format_mode == "time_series":
             logging.info("Using the time series format")
-            # # Iterate through each spectrogram
+            # # Iterate through each sample
             # for i in range(num_samples):
             #     range_km = labels[i * self.sampling_rate]
             #     filename = f"file_{i+1}.wav"
@@ -459,279 +745,3 @@ class FeatureExtraction(object):
             mixed_signal = mixed_signal[:T, :]
 
         return mixed_signal, lam
-
-    def extract_features(
-        self,
-        data_array: np.array,
-        metadata: pd.DataFrame,
-        output_file_name: str,
-    ) -> None:
-        """
-        Extract features from the data and save the dictionary to a pickle file
-
-        Args:
-            data_array: numpy array containing the data
-            metadata: metadata for the dataset
-            output_file_name: name of the output file
-
-        Returns:
-            None
-        """
-        data_dict = {}
-
-        # if isinstance(self.sampling_rate, float) or "." in str(self.sampling_rate):
-        #     logging.info("Sampling rate is a float...")
-        #     self.sampling_rate = float(self.sampling_rate)
-        #     total_seconds = len(data_array) // self.sampling_rate
-        #     logging.info(f"total_seconds: {total_seconds}")
-        #     num_slices = total_seconds // Params.sample_duration
-
-        #     # Compute the exact indices using cumulative rounding
-        #     start_indices = np.round(np.arange(0, total_seconds) * self.sampling_rate).astype(int)
-        #     end_indices = np.append(start_indices[1:], data_array.shape[0])  # Shifted indices for slicing
-
-        #     for i in range(num_slices):
-        #         filename = f"slice_{i}"
-        #         range_km = metadata.iloc[i]["range_km"]
-
-        #         start_idx, end_idx = start_indices[i], end_indices[i]
-
-        #         data_dict[filename] = {
-        #             "data": (
-        #                 data_array[start_idx:end_idx]
-        #                 if Params.data_format_mode == "time_series"
-        #                 else data_array[i, :]
-        #             ),
-        #             "target": range_km,
-        #         }
-
-        # else:
-        logging.info("Sampling rate is an integer...")
-        logging.info(f"Input data_array shape: {data_array.shape}")
-        self.sampling_rate = int(self.sampling_rate)
-        for i in range(len(metadata)):
-            filename = metadata.iloc[i]["filename"]
-            range_km = metadata.iloc[i]["range_km"]
-
-            # Handle different data formats:
-            # - 2D array (total_samples, channels): slice by sampling_rate
-            # - 3D array (N, time_samples, channels): index by sample
-            if data_array.ndim == 3:
-                # Data is already chunked: (N, time_samples, channels)
-                data_dict[filename] = {
-                    "data": data_array[i, :, :],
-                    "target": range_km,
-                }
-            elif data_array.ndim == 2:
-                # Continuous time series: (total_samples, channels)
-                start_idx = i * self.sampling_rate
-                end_idx = min((i + 1) * self.sampling_rate, data_array.shape[0])
-                data_dict[filename] = {
-                    "data": (
-                        data_array[start_idx:end_idx]
-                        if Params.data_format_mode == "time_series"
-                        else data_array[i, :]
-                    ),
-                    "target": range_km,
-                }
-            else:
-                raise ValueError(f"Unexpected data_array ndim: {data_array.ndim}")
-
-        audio_list = set(metadata["filename"])
-        output_dict = [[] for _ in range(Params.total_folds)]
-
-        for index, row in metadata.iterrows():
-            name = row["filename"]
-            fold = row["fold"]
-            target = row["target"]
-            if name in audio_list:
-                signal = data_dict[name]["data"]
-                # Experiments only, SA_Net does not use data augmentation in the paper
-                # and we only apply data augmentation to the training folds (fold 1-4)
-                # but not the validationa and test fold (fold 6)
-                if Params.data_augmentation == "noise" and fold != 5 and fold != 6:
-                    self.add_noise_with_snr(signal, 2 * 35)
-                    self.add_noise_with_snr(signal, 2 * 30)
-                    self.add_noise_with_snr(signal, 2 * 25)
-                    self.add_noise_with_snr(signal, 2 * 20)
-                    self.add_noise_with_snr(signal, 2 * 15)
-                    self.add_noise_with_snr(signal, 2 * 10)
-                if Params.data_augmentation == "time_warp" and fold != 5 and fold != 6:
-                    signal = self.time_warp_multichannel(signal, max_warp=0.2)
-                if Params.data_augmentation == "polarity_flip" and fold != 5 and fold != 6:
-                    signal = self.polarity_flip(signal)
-                if Params.data_augmentation == "mixup" and fold != 5 and fold != 6:
-                    signal, _ = self.mixup_split_multichannel(
-                        signal, alpha=0.3, split_ratio=0.7
-                    )
-   
-                target_value = data_dict[name]["target"]
-
-                output_dict[int(fold) - 1].append(
-                    {
-                        "name": name,
-                        "target": float(target),
-                        "waveform": np.float32(signal),
-                    }
-                )
-
-                if index == 0:
-                    logging.info("Logging the first audio file for sample check")
-                    logging.info(
-                        f"Processing {name}, Fold: {fold}, Target: {target_value}"
-                    )
-                    logging.info(f"waveform: {np.float32(signal)}")
-                    logging.info(f"shape: {signal.shape}")
-                    logging.info(f"target: {float(target)}")
-                    logging.info("Continue to process the rest of the audio files...")
-
-        with open(output_file_name, "wb") as f:
-            pickle.dump(output_dict, f)
-        logging.info("Data saving completed.")
-
-    # gcc and mel spectrogram features are used in the ACA_net paper
-    def nCr(self, n: int, r: int) -> int:
-        return math.factorial(n) // math.factorial(r) // math.factorial(n - r)
-
-    def get_gcc(self, linear_spectra: np.array) -> np.array:
-        """
-        Compute the Generalized Cross-Correlation (GCC) from the linear spectrogram
-
-        Args:
-            linear_spectra: linear spectrogram
-
-        Returns:
-            gcc_feat: GCC feature
-        """
-        gcc_channels = self.nCr(linear_spectra.shape[-1], 2)
-        # logging.info("gcc_channels: ", gcc_channels)
-        gcc_feat = np.zeros((linear_spectra.shape[0], self.n_mels_bins, gcc_channels))
-        cnt = 0
-        for m in range(linear_spectra.shape[-1]):
-            for n in range(m + 1, linear_spectra.shape[-1]):
-                R = np.conj(linear_spectra[:, :, m]) * linear_spectra[:, :, n]
-                cc = np.fft.irfft(np.exp(1.0j * np.angle(R)))
-                cc = np.concatenate(
-                    (cc[:, -self.n_mels_bins // 2 :], cc[:, : self.n_mels_bins // 2]),
-                    axis=-1,
-                )
-                gcc_feat[:, :, cnt] = cc
-                cnt += 1
-        return gcc_feat.transpose((0, 2, 1)).reshape((linear_spectra.shape[0], -1))
-
-    def add_noise(self, signal: np.array, snr_db: int) -> np.array:
-        """
-        Adds Gaussian noise to a signal to achieve a specified SNR.
-
-        Args:
-            signal: Input signal (numpy array or torch tensor)
-            snr_db: Desired Signal-to-Noise Ratio in dB
-
-        Returns:
-            Noisy signal
-        """
-
-        signal_power = np.mean(signal**2)
-        snr_linear = 10 ** (snr_db / 10)
-        noise_power = signal_power / snr_linear
-        noise = np.sqrt(noise_power) * np.random.randn(*signal.shape)
-
-        noisy_signal = signal + noise
-
-        return noisy_signal
-
-    def time_shift(self, signal: np.array, shift: int) -> np.array:
-        """
-        Shift the signal in time by the specified number of frames
-
-        Args:
-            signal: input signal
-            shift: number of frames to shift the signal by
-
-        Returns:
-            shifted signal
-        """
-        return np.roll(signal, shift)
-
-    def get_spectrogram_from_array(self, audio, augmentation=None) -> np.array:
-        """
-        Call the get_spectrogram function to get linear spectrogram from the audio input
-        with the specified augmentation and number of frames
-
-        Args:
-            audio: audio input
-            augmentation: augmentation type
-
-        Returns:
-            audio_spec: linear spectrogram
-        """
-        nb_feat_frames = int(len(audio) / float(self.hop_length))
-
-        audio_spec = self.get_spectrogram(audio, nb_feat_frames, augmentation)
-        return audio_spec
-
-    def get_spectrogram(
-        self, audio_input: np.array, nb_frames, augmentation=None
-    ) -> np.array:
-        """
-        Compute the linear spectrogram
-
-        Args:
-            audio_input: audio input
-            nb_frames: number of frames
-            augmentation: augmentation type
-
-        Returns:
-            spectra: linear spectrogram
-        """
-        n_ch = audio_input.shape[1]
-        spectra = []
-        for ch_cnt in range(n_ch):
-            signal = audio_input[:, ch_cnt].astype(float)
-
-            if isinstance(augmentation, int) and augmentation != 0:
-                signal = self.add_noise(signal, augmentation)
-
-            stft_ch = librosa.core.stft(
-                np.asfortranarray(signal),
-                n_fft=self.n_fft,
-                hop_length=self.hop_length,
-                win_length=2 * self.hop_length,
-                window="hann",
-            )
-
-            if augmentation == "time_masking" or augmentation == "freq_masking":
-                magnitude, phase = librosa.magphase(stft_ch)
-                magnitude = torch.from_numpy(magnitude)
-
-                if augmentation == "time_masking":
-                    magnitude = self.time_masking(magnitude)
-                elif augmentation == "freq_masking":
-                    magnitude = self.freq_masking(magnitude)
-
-                magnitude = magnitude.cpu().numpy()
-                stft_ch = magnitude * np.exp(1j * phase)
-
-            spectra.append(stft_ch[:, :nb_frames])
-        return np.array(spectra).T
-
-    def get_mel_spectrogram(self, linear_spectra: np.array) -> np.array:
-        """
-        Compute the mel spectrogram from the linear spectrogram
-
-        Args:
-            linear_spectra: linear spectrogram
-
-        Returns:
-            mel_feat: mel spectrogram
-        """
-        mel_feat = np.zeros(
-            (linear_spectra.shape[0], self.n_mels_bins, linear_spectra.shape[-1])
-        )
-        for ch_cnt in range(linear_spectra.shape[-1]):
-            mag_spectra = np.abs(linear_spectra[:, :, ch_cnt]) ** 2
-            mel_spectra = np.dot(mag_spectra, self.mel_wts)
-            log_mel_spectra = librosa.power_to_db(mel_spectra)
-            mel_feat[:, :, ch_cnt] = log_mel_spectra
-        mel_feat = mel_feat.transpose((0, 2, 1)).reshape((linear_spectra.shape[0], -1))
-        return mel_feat

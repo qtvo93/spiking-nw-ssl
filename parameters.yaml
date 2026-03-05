@@ -32,14 +32,14 @@ test_datasets: []
 # if cross_validation_mode = true, provide the total_folds, train_folds, validation_folds, and test_folds
 # if cross_validation_mode = false, provide the test_size
 # use either mode only, not both, when one mode is used, the other parameter is ignored
-cross_validation_mode: false
+cross_validation_mode: true
 total_folds: 6
 train_folds: [0,1,2,3]
 validation_folds: [4]
 test_folds: [5]
 test_size: 0.9
 run_inference_mode: true
-finetune_mode: false # If finetune = true, pretrained_model_path must be provided
+finetune_mode: false # If finetune_mode = true, pretrained_model_path must be provided
 log_verbose: false
 print_first_10th_predictions: false
 prediction_output_image_plot: "true_vs_predicted_labelsS5-newbell-non10pc.png"
@@ -48,7 +48,7 @@ sproul_text_file_path: "data/SproulToVLA.S5.txt"
 best_model_path: "best_model-scratch-s5-10pc.pth"
 parallel_mode: false
 simulated_data_mode: false
-data_augmentation: false
+data_augmentation: false # accepted values: false, "noise", "time_warp", "polarity_flip", "mixup", "all_augment"
 pretrained_model_path: "model_checkpoints/best_model-scratch-s5-vla-10pc.pth" # Only needed if finetune_mode is true
 dataset_path: "swellex-6folds-real.pkl"
 save_dir: "model_checkpoints"
