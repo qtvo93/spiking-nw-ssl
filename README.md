@@ -36,13 +36,14 @@ Before running scripts, check `parameters.yaml` for paths, data settings, and hy
 ### Option 1: Run with UV
 
 Prerequesite: https://docs.astral.sh/uv/
+
 Simply run any scripts with `uv`
 
 ```bash
 uv sync
 uv run python3 underwater-ssl/main.py --params-file=parameters.yaml feature_extractor
-uv run python underwater-ssl/main.py --params-file=parameters.yaml model_trainer
-uv run python underwater-ssl/main.py --params-file=parameters.yaml --run-test-only model_trainer
+uv run python3 underwater-ssl/main.py --params-file=parameters.yaml model_trainer
+uv run python3 underwater-ssl/main.py --params-file=parameters.yaml --run-test-only model_trainer
 ```
 
 ### Option 2: Run with Docker
