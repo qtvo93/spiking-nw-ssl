@@ -78,9 +78,9 @@ If `uv` and `Docker` are not available, remove the `--with-docker` option and ru
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
-./run_imaple.sh preprocess_features
-./run_imaple.sh train_model
-./run_imaple.sh test_model
+./run.sh preprocess_features
+./run.sh train_model
+./run.sh test_model
 ```
 
 ### Option 4: Direct Python Execution
