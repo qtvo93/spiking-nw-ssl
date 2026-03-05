@@ -232,7 +232,9 @@ class FeatureExtraction(object):
         # use cross_validation_mode to easily control whether to use fold-based augmentation
         aug_mode = Params.data_augmentation
         excluded_folds = set(Params.test_folds) | set(Params.validation_folds)
-        logging.info(f"Augmentation mode: {aug_mode}, Excluded folds for augmentation: {excluded_folds}")
+        logging.info(
+            f"Augmentation mode: {aug_mode}, Excluded folds for augmentation: {excluded_folds}"
+        )
 
         for index, row in metadata.iterrows():
             name = row["filename"]
@@ -245,7 +247,7 @@ class FeatureExtraction(object):
                 # but not the validation and test fold (e.g.: fold 5 and 6)
                 # use cross_validation_mode to easily control whether to use fold-based augmentation
                 fold_idx = int(fold) - 1
-               
+
                 if fold_idx not in excluded_folds:
                     if aug_mode in {"noise", "all_augment"}:
                         signal = self.add_noise_with_snr(signal, 2 * 35)
