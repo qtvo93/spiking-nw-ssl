@@ -231,7 +231,7 @@ class Inference(object):
         # Load model weights
         logging.info(f"Loading model from: {best_model_path}")
         self.model.load_state_dict(
-            torch.load(best_model_path, map_location=self.device)
+            torch.load(best_model_path, map_location=self.device, weights_only=True)
         )
         self.model = self.model.to(self.device)
         self.model.eval()
@@ -280,7 +280,9 @@ class Inference(object):
         else:
             best_model_path = os.path.join(self.save_dir, self.best_model_path)
 
-        self.model.load_state_dict(torch.load(best_model_path))
+        self.model.load_state_dict(
+            torch.load(best_model_path, map_location=self.device, weights_only=True)
+        )
         self.model = self.model.to(self.device)
         self.model.eval()
         all_predictions: list[Any] = []
