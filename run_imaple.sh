@@ -2,28 +2,29 @@
 
 # Description: This script extracts features from the dataset and saves them to a pickle file.
 # Author: Quoc Thinh Vo - qv23@drexel.edu
-# Last Modified: 2024-10-16
+# Last Modified: 2026-03-05
 # If you refer to or use this code, in whole or in part, please consider citing the following papers:
-# @@@
+# 1. Spiking Attention Network: A Hybrid Neuromorphic Approach to Underwater Acoustic Localization and Zero-shot Adaptation
+# 2. Adaptive Control Attention Network for Underwater Acoustic Localization and Domain Adaptation
 
 show_help() {
-    echo "Usage: ./run.sh {preprocess_features|train_model|test_model|activate_venv|help}"
+    echo "Usage: ./run_imaple.sh {preprocess_features|train_model|test_model|activate_venv|help}"
     echo ""
     echo "SA-Net: Underwater Sound Source Localization"
     echo ""
     echo "Options:"
     echo ""
     echo "  preprocess_features  - Start the feature extraction"
-    echo "                      Command: ./run.sh preprocess_features"
+    echo "                      Command: ./run_imaple.sh preprocess_features"
     echo ""
     echo "  train_model          - Train mode (test will automatically run with the option \`run_inference_mode=True\` in \`parameters.yaml\`)"
-    echo "                      Command: ./run.sh train_model"
+    echo "                      Command: ./run_imaple.sh train_model"
     echo ""
     echo "  test_model           - Test mode"
-    echo "                      Command: ./run.sh test_model"
+    echo "                      Command: ./run_imaple.sh test_model"
     echo ""
     echo "  help                 - Show this help message"
-    echo "                      Command: ./run.sh help"
+    echo "                      Command: ./run_imaple.sh help"
     echo ""
 }
 

@@ -2,9 +2,10 @@
 
 # Description: This script extracts features from the dataset and saves them to a pickle file.
 # Author: Quoc Thinh Vo - qv23@drexel.edu
-# Last Modified: 2024-10-16
+# Last Modified: 2026-03-05
 # If you refer to or use this code, in whole or in part, please consider citing the following papers:
-# @@@
+# 1. Spiking Attention Network: A Hybrid Neuromorphic Approach to Underwater Acoustic Localization and Zero-shot Adaptation
+# 2. Adaptive Control Attention Network for Underwater Acoustic Localization and Domain Adaptation
 
 show_help() {
     echo "Usage: ./run.sh {preprocess_features|train_model|test_model|build_docker_image|help} [options]"

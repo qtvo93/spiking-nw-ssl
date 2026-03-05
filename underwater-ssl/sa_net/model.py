@@ -1,8 +1,9 @@
-# Description: This file contains the core model architecture for the ACA_DTNET model
+# Description: This file contains the core model architecture for the model
 # Author: Quoc Thinh Vo - qv23@drexel.edu
-# Last Modified: 2024-10-16
+# Last Modified: 2026-03-05
 # If you refer to or use this code, in whole or in part, please consider citing the following papers:
-# @@@
+# 1. Spiking Attention Network: A Hybrid Neuromorphic Approach to Underwater Acoustic Localization and Zero-shot Adaptation
+# 2. Adaptive Control Attention Network for Underwater Acoustic Localization and Domain Adaptation
 
 import torch
 import torch.nn as nn
@@ -19,8 +20,6 @@ from snntorch import surrogate
 from snntorch import spikegen
 import numpy as np
 import matplotlib.pyplot as plt
-
-device = "cuda" if torch.cuda.is_available() else "cpu"
 
 
 class SA_NET(pl.LightningModule):
