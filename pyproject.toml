@@ -1,6 +1,6 @@
 [project]
 name = "spiking-nw-ssl"
-version = "0.1.0"
+version = "1.0.0"
 description = "App to run spiking-nw-ssl"
 authors = [{"name" = "Quoc Thinh Vo", "email" = "qv23@drexel.edu"}]
 readme = "README.md"
