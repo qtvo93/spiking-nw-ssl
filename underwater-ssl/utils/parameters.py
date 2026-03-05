@@ -12,6 +12,7 @@ import yaml
 class Params(object):
     wandb_training_project = "sa-net"
     wandb_traning_name = "swellex-run-no-1"
+    wandb_training_name = "swellex-run-no-1"
     run_with_wandb = False
     batch_size = 32
     sample_duration = 1.0
@@ -24,9 +25,10 @@ class Params(object):
     optimizer = "Adam"
     sampling_rate = 200
     multiple_datasets_mode = False
-    train_datasets = []
-    validation_datasets = []
-    test_datasets = []
+    data_augmentation = "none"
+    train_datasets: list[str] = []
+    validation_datasets: list[str] = []
+    test_datasets: list[str] = []
     cross_validation_mode = True
     total_folds = 6
     train_folds = [1]
@@ -60,11 +62,27 @@ class Params(object):
     save_dir = "/mnt/active_storage/swell24/model_checkpoints"
 
     @classmethod
-    def load_from_yaml(cls, params_file):
+    def load_from_yaml(cls, params_file: str) -> None:
         with open(params_file, "r") as file:
             params = yaml.safe_load(file)
+        if params is None:
+            return
+
         for key, value in params.items():
             setattr(cls, key, value)
 
+        if hasattr(cls, "wandb_traning_name") and not hasattr(
+            cls, "wandb_training_name"
+        ):
+            cls.wandb_training_name = cls.wandb_traning_name
+        elif hasattr(cls, "wandb_training_name") and not hasattr(
+            cls, "wandb_traning_name"
+        ):
+            cls.wandb_traning_name = cls.wandb_training_name
+
+        if not isinstance(cls.device, torch.device):
+            cls.device = torch.device(str(cls.device))
+
         # safety check for cuda availability
-        cls.device = cls.device if torch.cuda.is_available() else "cpu"
+        if cls.device.type == "cuda" and not torch.cuda.is_available():
+            cls.device = torch.device("cpu")

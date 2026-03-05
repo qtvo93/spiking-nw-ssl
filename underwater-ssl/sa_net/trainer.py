@@ -7,9 +7,6 @@
 
 import torch
 import logging
-import torch.nn as nn
-import torch.nn.functional as F
-import torch.optim as optim
 
 # from snntorch import utils
 
@@ -56,11 +53,6 @@ class Trainer(object):
         Returns:
             None
         """
-        # Initialize ReduceLROnPlateau scheduler
-        scheduler = optim.lr_scheduler.ReduceLROnPlateau(
-            self.optimizer, mode="min", factor=0.5, patience=5
-        )
-
         best_val_loss = float("inf")
         for epoch in range(self.num_epochs):
             self.model.train()

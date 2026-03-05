@@ -6,7 +6,6 @@
 # 2. Adaptive Control Attention Network for Underwater Acoustic Localization and Domain Adaptation
 
 import os
-import pickle
 import logging
 import sys
 import argparse
@@ -198,7 +197,7 @@ if __name__ == "__main__":
     logging.info("Start training the model...")
     main.train(train_loader, val_loader)
     logging.info("Training completed!")
-    if Params.run_inference_mode == True:
+    if Params.run_inference_mode:
         logging.info("Running test on the test dataset...")
         main.inference(test_loader)
         logging.info("Inference completed!")

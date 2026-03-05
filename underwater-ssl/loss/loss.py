@@ -136,7 +136,7 @@ class Loss(object):
             for depth in depth_profile:
                 # Simulate a "reflection" at each depth layer
                 # (In reality, this would be a more complex calculation involving Snell's law)
-                sound_speed_at_depth = self.sound_speed(depth)
+                self.sound_speed(depth)
                 new_pos = [ray_pos, depth]
                 path.append(new_pos)
             rays.append(np.array(path))

@@ -1,6 +1,6 @@
 [project]
 name = "spiking-nw-ssl"
-version = "0.1.0"
+version = "1.0.0"
 description = "App to run spiking-nw-ssl"
 authors = [{"name" = "Quoc Thinh Vo", "email" = "qv23@drexel.edu"}]
 readme = "README.md"
@@ -8,11 +8,13 @@ requires-python = ">=3.9"
 dependencies = [
     "black>=24.10.0",
     "conformer>=0.3.2",
+    "flake8>=7.3.0",
     "hiddenlayer>=0.3",
     "ipython>=8.18.1",
     "joblib>=1.4.2",
     "librosa>=0.10.2.post1",
     "matplotlib>=3.9.2",
+    "mypy>=1.19.1",
     "numpy>=2.0.2",
     "pandas>=2.2.3",
     "pytorch-lightning>=2.4.0",
@@ -26,3 +28,13 @@ dependencies = [
     "wandb>=0.18.5",
     "yamllint>=1.35.1",
 ]
+
+[tool.mypy]
+python_version = "3.9"
+warn_unused_configs = true
+ignore_missing_imports = true
+disable_error_code = ["import-untyped"]
+
+[[tool.mypy.overrides]]
+module = ["utils.feature_extraction"]
+ignore_errors = true
