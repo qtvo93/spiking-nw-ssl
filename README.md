@@ -72,7 +72,7 @@ Set `pretrained_model_path` in `parameters.yaml`, then run:
 
 ### Option 3: Run without Docker
 
-If `uv` and `Docker` is not available, remove the `--with-docker` option and run the Python scripts directly.
+If `uv` and `Docker` are not available, remove the `--with-docker` option and run the Python scripts directly.
 
 ```bash
 python3 -m venv .venv
