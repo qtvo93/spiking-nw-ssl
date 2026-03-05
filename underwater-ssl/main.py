@@ -1,3 +1,10 @@
+# Description: This file contains the main entry point for training and inference
+# Author: Quoc Thinh Vo - qv23@drexel.edu
+# Last Modified: 2026-03-20
+# If you refer to or use this code, in whole or in part, please consider citing the following papers:
+# 1. Spiking Attention Network: A Hybrid Neuromorphic Approach to Underwater Acoustic Localization and Zero-shot Adaptation
+# 2. Adaptive Control Attention Network for Underwater Acoustic Localization and Domain Adaptation
+
 import sys
 import typer
 import logging
@@ -124,9 +131,9 @@ def feature_extractor():
 
     feature_extraction = FeatureExtraction(data_augmentation=Params.data_augmentation)
 
-    # check if Params.dataset_path contains correct folder path
-    parent_folder = "/".join(Params.dataset_path.split("/")[:-1])
-    if not os.path.exists(parent_folder):
+    # check if Params.dataset_path contains a parent folder path
+    parent_folder = os.path.dirname(Params.dataset_path)
+    if parent_folder and not os.path.exists(parent_folder):
         logging.info(f"Folder does not exist. Creating folder: {parent_folder}")
         os.makedirs(parent_folder)
 
@@ -134,13 +141,13 @@ def feature_extractor():
         logging.info("Using simulated data...")
         data_array, labels = feature_extraction.load_bell_simulated_data_and_labels()
         if Params.simulated_num_samples:
-            num_spectrograms = Params.simulated_num_samples
+            num_samples = Params.simulated_num_samples
         else:
-            num_spectrograms = int(
+            num_samples = int(
                 len(data_array) / (Params.sampling_rate * Params.sample_duration)
             )
         # metadata = feature_extraction.generate_bell_metadata_for_simulated_data(
-        #     num_spectrograms=num_spectrograms,
+        #     num_samples=num_samples,
         #     labels=labels,
         # )
         metadata = feature_extraction.generate_bell_metadata_for_simulated_data()
@@ -148,11 +155,11 @@ def feature_extractor():
         logging.info("Using real data...")
         data_array = feature_extraction.load_data_from_csv()
 
-        num_spectrograms = int(
+        num_samples = int(
             len(data_array) / (Params.sampling_rate * Params.sample_duration)
         )
         metadata = feature_extraction.generate_metadata(
-            num_spectrograms=num_spectrograms,
+            num_samples=num_samples,
             sample_duration=Params.sample_duration,
         )
 

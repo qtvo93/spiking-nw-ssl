@@ -1,8 +1,9 @@
 # Description: This file contains the FeatureExtraction class which is used to extract features from the audio data.
 # Author: Quoc Thinh Vo - qv23@drexel.edu
-# Last Modified: 2024-10-16
+# Last Modified: 2026-03-20
 # If you refer to or use this code, in whole or in part, please consider citing the following papers:
-# @@@
+# 1. Spiking Attention Network: A Hybrid Neuromorphic Approach to Underwater Acoustic Localization and Zero-shot Adaptation
+# 2. Adaptive Control Attention Network for Underwater Acoustic Localization and Domain Adaptation
 
 import numpy as np
 import librosa
@@ -82,13 +83,13 @@ class FeatureExtraction(object):
         return sproul_data
 
     def generate_metadata(
-        self, num_spectrograms: int, sample_duration: float
+        self, num_samples: int, sample_duration: float
     ) -> pd.DataFrame:
         """
         Generate metadata for the dataset
 
         Args:
-            num_spectrograms: number of spectrograms
+            num_samples: number of spectrograms
             sample_duration: duration of the spectrogram
 
         Returns:
@@ -112,9 +113,9 @@ class FeatureExtraction(object):
             1.396,
             2.179,
         ]
-        print(num_spectrograms)
+        print(num_samples)
         # Iterate through each spectrogram
-        for i in range(num_spectrograms):
+        for i in range(num_samples):
 
             timestamp = i * sample_duration
 
@@ -191,13 +192,13 @@ class FeatureExtraction(object):
         return data_array, labels
 
     def generate_metadata_for_simulated_data(
-        self, num_spectrograms: int, labels: np.array
+        self, num_samples: int, labels: np.array
     ) -> pd.DataFrame:
         """
         Generate metadata for the simulated dataset
 
         Args:
-            num_spectrograms: number of spectrograms
+            num_samples: number of spectrograms
             labels: numpy array containing the labels
 
         Returns:
@@ -218,7 +219,7 @@ class FeatureExtraction(object):
         if Params.data_format_mode == "time_series":
             logging.info("Using the time series format")
             # # Iterate through each spectrogram
-            # for i in range(num_spectrograms):
+            # for i in range(num_samples):
             #     range_km = labels[i * self.sampling_rate]
             #     filename = f"file_{i+1}.wav"
             #     fold = i % Params.total_folds + 1
@@ -234,7 +235,7 @@ class FeatureExtraction(object):
             #     )
             #     metadata = pd.concat([metadata, new_row], ignore_index=True)
             # Shuffle indices to randomize the fold assignment
-            indices = np.arange(num_spectrograms)
+            indices = np.arange(num_samples)
             np.random.shuffle(indices)
 
             # Assign folds randomly but evenly
@@ -245,7 +246,7 @@ class FeatureExtraction(object):
             )  # Folds will be 1 to total_folds
             # 7.932 7.042  5.953 5.087 4.251 3.382 2.574 1.800 1.147 0.905 1.396 2.179
             # test_ranges = [7.932, 7.042, 5.953, 5.087, 4.251, 3.382, 2.574, 1.800, 1.147, 0.905, 1.396, 2.179]
-            for i in range(num_spectrograms):
+            for i in range(num_samples):
                 range_km = labels[i * self.sampling_rate]
                 filename = f"file_{i+1}.wav"
                 # This is for Scenario 2 testing
@@ -273,7 +274,7 @@ class FeatureExtraction(object):
 
         if Params.data_format_mode == "chunked_list":
             logging.info("Using the chunked list format")
-            for i in range(num_spectrograms):
+            for i in range(num_samples):
                 range_km = labels[i]
                 filename = f"file_{i+1}.wav"
                 fold = i % Params.total_folds + 1
@@ -525,7 +526,7 @@ class FeatureExtraction(object):
         for i in range(len(metadata)):
             filename = metadata.iloc[i]["filename"]
             range_km = metadata.iloc[i]["range_km"]
-            
+
             # Handle different data formats:
             # - 2D array (total_samples, channels): slice by sampling_rate
             # - 3D array (N, time_samples, channels): index by sample
@@ -538,9 +539,7 @@ class FeatureExtraction(object):
             elif data_array.ndim == 2:
                 # Continuous time series: (total_samples, channels)
                 start_idx = i * self.sampling_rate
-                end_idx = min(
-                    (i + 1) * self.sampling_rate, data_array.shape[0]
-                )
+                end_idx = min((i + 1) * self.sampling_rate, data_array.shape[0])
                 data_dict[filename] = {
                     "data": (
                         data_array[start_idx:end_idx]

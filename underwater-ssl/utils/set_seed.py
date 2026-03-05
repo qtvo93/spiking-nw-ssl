@@ -1,3 +1,10 @@
+# Description: This file set seed for reproducibility.
+# Author: Quoc Thinh Vo - qv23@drexel.edu
+# Last Modified: 2026-03-20
+# If you refer to or use this code, in whole or in part, please consider citing the following papers:
+# 1. Spiking Attention Network: A Hybrid Neuromorphic Approach to Underwater Acoustic Localization and Zero-shot Adaptation
+# 2. Adaptive Control Attention Network for Underwater Acoustic Localization and Domain Adaptation
+
 import random
 import numpy as np
 import torch
