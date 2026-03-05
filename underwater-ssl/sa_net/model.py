@@ -1,6 +1,10 @@
 # Description: This file contains the core model architecture for the model
 # Author: Quoc Thinh Vo - qv23@drexel.edu
+<<<<<<< HEAD
 # Last Modified: 2026-03-05
+=======
+# Last Modified: 2026-03-20
+>>>>>>> 64c3b69 (update readme and params)
 # If you refer to or use this code, in whole or in part, please consider citing the following papers:
 # 1. Spiking Attention Network: A Hybrid Neuromorphic Approach to Underwater Acoustic Localization and Zero-shot Adaptation
 # 2. Adaptive Control Attention Network for Underwater Acoustic Localization and Domain Adaptation
