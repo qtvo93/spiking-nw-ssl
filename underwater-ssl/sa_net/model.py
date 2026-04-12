@@ -18,16 +18,25 @@ from snntorch import surrogate
 
 
 class SA_NET(pl.LightningModule):
-    def __init__(self):
+    def __init__(self, input_channels=21, output_channels=1):
         super(SA_NET, self).__init__()
         self.set_seed = SetSeed(seed=42)
         self.set_seed.set_seed()
+        self.input_channels = input_channels
+        self.output_channels = output_channels
 
         self.ch_rescaling_1 = nn.Sequential(
-            nn.Conv1d(21, 64, kernel_size=7, stride=1, padding=1, bias=False),
+            nn.Conv1d(
+                self.input_channels,
+                64,
+                kernel_size=7,
+                stride=1,
+                padding=1,
+                bias=False,
+            ),
             nn.BatchNorm1d(64),
         )
-        self.resnet1 = ResBlock1D(21, 64, self.ch_rescaling_1, 7)
+        self.resnet1 = ResBlock1D(self.input_channels, 64, self.ch_rescaling_1, 7)
 
         self.ch_rescaling_2 = nn.Sequential(
             nn.Conv1d(64, 128, kernel_size=5, stride=1, padding=1, bias=False),
@@ -70,7 +79,7 @@ class SA_NET(pl.LightningModule):
 
         self.relu = nn.ReLU()
         self.fc_reduced = nn.Linear(512, 1)
-        self.fc_singleton = nn.Linear(11, 1)
+        self.fc_singleton = nn.Linear(11, self.output_channels)
         self.spike_grad = surrogate.fast_sigmoid(slope=25)
         self.lif1 = snn.Leaky(beta=0.9956, spike_grad=self.spike_grad)
         self.lif2 = snn.Leaky(beta=0.9821, spike_grad=self.spike_grad)
