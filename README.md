@@ -6,12 +6,12 @@ Codebase Author: Quoc Thinh Vo - qv23 [at] drexel [dot] edu
 If you find this code useful and use it, in whole or in part, please consider citing the following papers:
 
 #### [Spiking Attention Network: A Hybrid Neuromorphic Approach to Underwater Acoustic Localization and Zero-shot Adaptation](https://ieeexplore.ieee.org/abstract/document/11226378/)
-Published in 2026 51th IEEE International Conference on Acoustics, Speech, and Signal Processing (ICASSP)
+Published in 2026 51st IEEE International Conference on Acoustics, Speech, and Signal Processing (ICASSP)
 ```
 @inproceedings{vo2026sa-net,
   title={Spiking Attention Network: A Hybrid Neuromorphic Approach to Underwater Acoustic Localization and Zero-shot Adaptation},
   author={Vo, Quoc Thinh and Han, David K},
-  booktitle={2026 51th IEEE International Conference on Acoustics, Speech, and Signal Processing (ICASSP)},
+  booktitle={2026 51st IEEE International Conference on Acoustics, Speech, and Signal Processing (ICASSP)},
   pages={1--5},
   year={2026},
   organization={IEEE}
