@@ -33,6 +33,14 @@ Published in 2025 33rd European Signal Processing Conference (EUSIPCO)
 
 ## How to Run
 
+## Prerequisites
+
+You will need your own dataset, or you can download the SWellEx-96 dataset from the [Marine Physical Laboratory](https://swellex96.ucsd.edu/) if you would like to reproduce the SWellEx-96 experiment.
+
+After downloading the data, follow the instructions on the SWellEx-96 website to run the preprocessing steps in MATLAB and export it to a `.csv` file that can be used as input in the `parameters.yaml`.
+
+If you need additional help, you may contact us for access to a preprocessed `dataset.pkl` file.
+
 Before running scripts, check `parameters.yaml` for paths, data settings, and hyperparameters.
 
 ### Option 1: Run with UV
