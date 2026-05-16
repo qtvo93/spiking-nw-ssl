@@ -160,18 +160,18 @@ source swell-env/bin/activate
 
 ## SAnet
 
-Spiking Attention Network (SA-Net) model package.
+Spiking Attention Network (SA-Net) model package: https://pypi.org/project/sanet/
 
 ## Install
 
 ```bash
-pip3 install SAnet
+pip3 install sanet
 ```
 
 Or
 
 ```bash
-uv add SAnet
+uv add sanet
 ```
 
 ## Usage
@@ -180,9 +180,9 @@ uv add SAnet
 
 ```python
 import torch
-import SAnet
+import sanet
 
-model = SAnet.SA_NET()
+model = sanet.SA_NET()
 
 batch_size = 2
 time_steps = 1500
@@ -199,9 +199,9 @@ print(y.shape)
 
 ```python
 import torch
-import SAnet
+import sanet
 
-model = SAnet.SA_NET(
+model = sanet.SA_NET(
 	input_channels=21,
 	output_channels=1,
 	middle_channels=11,
