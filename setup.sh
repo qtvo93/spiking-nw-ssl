@@ -8,6 +8,16 @@ TARGET_DIR="$(pwd)"
 TARGET_PATH="$TARGET_DIR/$DATASET_FILE"
 MIN_BYTES=1048576
 
+if ! command -v uv >/dev/null 2>&1; then
+  echo "uv not found. Installing uv..."
+  curl -fsSL https://astral.sh/uv/install.sh | sh
+  export PATH="$HOME/.local/bin:$PATH"
+fi
+
+echo "Syncing project dependencies with uv..."
+export UV_LINK_MODE=copy
+uv sync
+
 if [ -f "$TARGET_PATH" ]; then
   echo "Dataset already exists: $TARGET_PATH"
 else
