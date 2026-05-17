@@ -2,17 +2,24 @@
 
 set -euo pipefail
 
-DATASET_URL="https://huggingface.co/datasets/qtvo/processed_6folds_VLA/resolve/main/swellex-6folds-real-physics.pkl"
+DATASET_URL="https://huggingface.co/datasets/qtvo/processed_6folds_VLA/resolve/main/swellex-6folds-real-physics.pkl?download=1"
 DATASET_FILE="swellex-6folds-real-physics.pkl"
 TARGET_DIR="$(pwd)"
 TARGET_PATH="$TARGET_DIR/$DATASET_FILE"
+MIN_BYTES=1048576
 
 if [ -f "$TARGET_PATH" ]; then
   echo "Dataset already exists: $TARGET_PATH"
 else
   echo "Downloading dataset..."
-  curl -L "$DATASET_URL" -o "$TARGET_PATH"
-  echo "Saved dataset to: $TARGET_PATH"
+  curl -fL "$DATASET_URL" -o "$TARGET_PATH"
+  actual_size=$(wc -c < "$TARGET_PATH")
+  if [ "$actual_size" -lt "$MIN_BYTES" ]; then
+    echo "Download failed or truncated (size: ${actual_size} bytes)."
+    echo "Please retry or check network access to Hugging Face."
+    exit 1
+  fi
+  echo "Saved dataset to: $TARGET_PATH (${actual_size} bytes)"
 fi
 
 echo "Setup complete."
