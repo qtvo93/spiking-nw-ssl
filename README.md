@@ -54,11 +54,21 @@ You will need your own dataset, or you can download the SWellEx-96 dataset from 
 
 After downloading the data, follow the instructions on the SWellEx-96 website to run the preprocessing steps in MATLAB and export it to a `.csv` file that can be used as input in the `parameters.yaml`.
 
-If you need additional help, you may contact us for access to a preprocessed `dataset.pkl` file.
+If you need additional help, you may use the preprocessed that we have prepared: https://huggingface.co/datasets/qtvo/processed_6folds_VLA/blob/main/swellex-6folds-real-physics.pkl
 
 Before running scripts, check `parameters.yaml` for paths, data settings, and hyperparameters.
 
-If you only want to import and run the SA-Net model, see: [SAnet pypi Usage](#sanet)
+If you only want to import and run the SA-Net model, see: [SA-Net PyPI Usage](#sanet)
+
+If you only want to re-run the SA-Net base experiment with a quick installation, follow these:
+
+```bash
+$ git clone https://github.com/qtvo93/spiking-nw-ssl.git
+$ cd spiking-nw-ssl
+$ chmod +x ./setup.sh
+$ ./setup.sh
+$ ./run.sh train_model
+```
 
 ### Option 1: Run with UV
 
