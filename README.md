@@ -294,3 +294,17 @@ flowchart TB
 - `conformer_ff_dropout` (default: 0.1): Feedforward dropout in Conformer.
 - `conformer_conv_dropout` (default: 0.1): Convolution dropout in Conformer.
 - `dropout_p1`, `dropout_p2`, `dropout_p3`, `dropout_p4` (default: 0.0, 0.1, 0.1, 0.1): Dropout probabilities for the 1D dropout layers.
+
+
+## Contributing
+
+Contributions are welcome. If you would like to improve this repository, please feel free to open an issue or submit a pull request.
+
+Suggested contributions include:
+
+- Fixing bugs or improving documentation
+- Adding examples or usage instructions
+- Improving model training or evaluation scripts
+- Reporting installation or reproducibility issues
+
+Before submitting a pull request, please make sure your changes are clear, tested when possible, and consistent with the existing code style.
