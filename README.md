@@ -1,7 +1,7 @@
 # Spiking Attention Network
 [![PyPI version](https://img.shields.io/pypi/v/sanet.svg?logo=pypi&logoColor=FFE873&cacheSeconds=3600)](https://pypi.org/project/sanet/)
 [![Supported Python versions](https://img.shields.io/pypi/pyversions/sanet.svg?logo=python&logoColor=FFE873&cacheSeconds=3600)](https://pypi.org/project/sanet/)
-[![PyPI downloads](https://img.shields.io/pypi/dm/sanet.svg&cacheSeconds=3600)](https://pypistats.org/packages/sanet)
+[![PyPI downloads](https://img.shields.io/pypi/dm/sanet.svg)](https://pypistats.org/packages/sanet)
 [![GitHub Actions status](https://github.com/qtvo93/spiking-nw-ssl/workflows/Style%20and%20Unit%20Tests/badge.svg)](https://github.com/qtvo93/spiking-nw-ssl/actions)
 [![Licence](https://img.shields.io/github/license/qtvo93/spiking-nw-ssl.svg)](LICENSE)
 [![Code style: Black](https://img.shields.io/badge/code%20style-Black-000000.svg)](https://github.com/psf/black)
